@@ -1,15 +1,20 @@
 # ===============================
-# 1. Build Vite (React + Inertia)
+# 1. Build Frontend (React + Vite)
 # ===============================
 FROM node:18 AS node-build
 
 WORKDIR /app
 
+# package.json をコピーして依存インストール
 COPY package*.json ./
 RUN npm install
 
+# ソースコードコピー
 COPY . .
+
+# Vite ビルド
 RUN npm run build
+
 
 # ===============================
 # 2. PHP + Laravel + nginx
@@ -28,7 +33,7 @@ RUN apt-get update && apt-get install -y \
     zip \
     && docker-php-ext-install pdo_mysql zip
 
-# Composer コピー
+# Composer インストール
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
 WORKDIR /var/www/html
@@ -36,23 +41,20 @@ WORKDIR /var/www/html
 # Laravel ソースをコピー
 COPY . .
 
-# Vite のビルド結果を public にコピー
+# React ビルド済みファイルを public にコピー
 COPY --from=node-build /app/public ./public
 
 # Laravel install
 RUN composer install --no-dev --optimize-autoloader
 
-# ← ここを追加（本番イメージに .env.production を生成）
-# 本番環境の env をコピー
-COPY .env.production .env
+# Storage と cache ディレクトリ権限設定
+RUN chmod -R 777 storage bootstrap/cache
 
-# APP_KEY を自動生成
-RUN php artisan key:generate --force
-
+# Storage symlink
 RUN php artisan storage:link
 
 # nginx 設定をコピー
 COPY ./docker/nginx.conf /etc/nginx/nginx.conf
 
-# 実行コマンド（php-fpm + nginx）
+# nginx と php-fpm を同時起動
 CMD service nginx start && php-fpm
