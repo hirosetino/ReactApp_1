@@ -11,7 +11,6 @@ RUN npm install
 COPY . .
 RUN npm run build
 
-
 # ===============================
 # 2. PHP + Laravel + nginx
 # ===============================
@@ -40,9 +39,16 @@ COPY . .
 # Vite のビルド結果を public にコピー
 COPY --from=node-build /app/public ./public
 
-# Laravel 最適化
+# Laravel install
 RUN composer install --no-dev --optimize-autoloader
+
+# ← ここを追加（本番イメージに .env.production を生成）
+# 本番環境の env をコピー
+COPY .env.production .env
+
+# APP_KEY を自動生成
 RUN php artisan key:generate --force
+
 RUN php artisan storage:link
 
 # nginx 設定をコピー
