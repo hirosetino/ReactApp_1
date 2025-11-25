@@ -7,12 +7,15 @@ import {
     Typography,
     Box,
     TextField,
+    Link,
     InputLabel,
     IconButton,
     Button
 } from '@mui/material';
 
 import { AddCircleOutline, RemoveCircleOutline } from '@mui/icons-material';
+
+import Layout from '@/Layouts/Layout';
 
 const RecipeCreate = () => {
     const queryParams = new URLSearchParams(window.location.search);
@@ -21,6 +24,7 @@ const RecipeCreate = () => {
     const [recipeData, setRecipeData] = useState({
         recipes_id: null,
         name: '',
+        url: '',
         ingredients: [],
         image_path: null,
     });
@@ -36,6 +40,7 @@ const RecipeCreate = () => {
                     setRecipeData({
                         recipes_id: r.id || null,
                         name: r.name || '',
+                        url: r.url || '',
                         ingredients: r.ingredient || [],
                         image_path: r.image_path || null,
                     });
@@ -83,7 +88,8 @@ const RecipeCreate = () => {
         try {
             const formData = new FormData();
             formData.append('recipes_id', recipeData.recipes_id || '');
-            formData.append('name', recipeData.name);
+            formData.append('name', recipeData.name || '');
+            formData.append('url', recipeData.url || '');
             formData.append('image', recipeData.image_path || '');
 
             recipeData.ingredients.forEach((ing, index) => {
@@ -107,116 +113,131 @@ const RecipeCreate = () => {
 
     return (
         <>
-            <Paper elevation={3} sx={{ maxWidth: 800, margin: "auto", mt: 2, padding: 2 }}>
-                <Typography variant="h6">
-                    {recipeId ? 'レシピ編集' : 'レシピ登録'}
-                </Typography>
+            <Layout>
+                <Paper elevation={3} sx={{ maxWidth: 800, margin: "auto", mt: 2, padding: 2 }}>
+                    <Typography variant="h6">
+                        {recipeId ? 'レシピ編集' : 'レシピ登録'}
+                    </Typography>
 
-                <Box mb={2}>
-                    <InputLabel>画像</InputLabel>
+                    <Box mb={2}>
+                        <InputLabel>画像</InputLabel>
 
-                    <input
-                        type="file"
-                        accept="image/*"
-                        ref={fileInputRef}
-                        style={{ display: 'none' }}
-                        onChange={(e) => {
-                            const file = e.target.files[0];
-                            if (file) {
-                                setRecipeData(prev => ({ ...prev, image_path: file }));
+                        <input
+                            type="file"
+                            accept="image/*"
+                            ref={fileInputRef}
+                            style={{ display: 'none' }}
+                            onChange={(e) => {
+                                const file = e.target.files[0];
+                                if (file) {
+                                    setRecipeData(prev => ({ ...prev, image_path: file }));
 
-                                const reader = new FileReader();
-                                reader.onloadend = () => {
-                                    setPreview(reader.result);
-                                };
-                                reader.readAsDataURL(file);
-                            }
-                        }}
+                                    const reader = new FileReader();
+                                    reader.onloadend = () => {
+                                        setPreview(reader.result);
+                                    };
+                                    reader.readAsDataURL(file);
+                                }
+                            }}
+                        />
+
+                        <Box
+                            sx={{
+                                width: 200,
+                                height: 200,
+                                border: '1px solid #ccc',
+                                borderRadius: 2,
+                                overflow: 'hidden',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                backgroundColor: '#f9f9f9',
+                            }}
+                            onClick={() => fileInputRef.current.click()}
+                        >
+                            {preview ? (
+                                <img
+                                    src={preview}
+                                    alt="プレビュー"
+                                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                />
+                            ) : (
+                                <span style={{ color: '#999' }}>画像を選択</span>
+                            )}
+                        </Box>
+                    </Box>
+
+                    <TextField
+                        fullWidth
+                        label="レシピ名"
+                        size="small"
+                        margin="normal"
+                        value={recipeData.name}
+                        onChange={(e) => setRecipeData(prev => ({ ...prev, name: e.target.value }))}
                     />
 
-                    <Box
-                        sx={{
-                            width: 200,
-                            height: 200,
-                            border: '1px solid #ccc',
-                            borderRadius: 2,
-                            overflow: 'hidden',
-                            cursor: 'pointer',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            backgroundColor: '#f9f9f9',
-                        }}
-                        onClick={() => fileInputRef.current.click()}
-                    >
-                        {preview ? (
-                            <img
-                                src={preview}
-                                alt="プレビュー"
-                                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                            />
-                        ) : (
-                            <span style={{ color: '#999' }}>画像を選択</span>
-                        )}
+                    <TextField
+                        fullWidth
+                        label="URL"
+                        size="small"
+                        margin="normal"
+                        value={recipeData.url}
+                        onChange={(e) => setRecipeData(prev => ({ ...prev, url: e.target.value }))}
+                    />
+                    {recipeData.url && (
+                        <Link href={recipeData.url} target="_blank" rel="noopener noreferrer">
+                        {recipeData.url}
+                    </Link>
+                    )}
+
+                    <Typography variant="h6" sx={{ mt: 2 }}>
+                        材料
+                    </Typography>
+
+                    {recipeData.ingredients?.map((ingredient, index) => (
+                        <Grid container mb={1} spacing={2} key={index} alignItems="center">
+                            <Grid item xs={5}>
+                                <TextField
+                                    fullWidth
+                                    label="材料名"
+                                    size="small"
+                                    value={ingredient.name}
+                                    onChange={(e) => handleIngredientChange(index, 'name', e.target.value)}
+                                />
+                            </Grid>
+                            <Grid item xs={5}>
+                                <TextField
+                                    fullWidth
+                                    label="量"
+                                    size="small"
+                                    value={ingredient.amount}
+                                    onChange={(e) => handleIngredientChange(index, 'amount', e.target.value)}
+                                />
+                            </Grid>
+                            <Grid item xs={2}>
+                                <IconButton
+                                    onClick={() => handleRemoveIngredient(index)}
+                                >
+                                    <RemoveCircleOutline />
+                                </IconButton>
+                            </Grid>
+                        </Grid>
+                    ))}
+
+                    <Box mt={2}>
+                        <Button startIcon={<AddCircleOutline />} onClick={handleAddIngredient}>
+                            材料を追加
+                        </Button>
                     </Box>
-                </Box>
 
-                <TextField
-                    fullWidth
-                    label="レシピ名"
-                    size="small"
-                    margin="normal"
-                    value={recipeData.name}
-                    onChange={(e) => setRecipeData(prev => ({ ...prev, name: e.target.value }))}
-                />
-
-                <Typography variant="h6" sx={{ mt: 2 }}>
-                    材料
-                </Typography>
-
-                {recipeData.ingredients?.map((ingredient, index) => (
-                    <Grid container mb={1} spacing={2} key={index} alignItems="center">
-                        <Grid item xs={5}>
-                            <TextField
-                                fullWidth
-                                label="材料名"
-                                size="small"
-                                value={ingredient.name}
-                                onChange={(e) => handleIngredientChange(index, 'name', e.target.value)}
-                            />
-                        </Grid>
-                        <Grid item xs={5}>
-                            <TextField
-                                fullWidth
-                                label="量"
-                                size="small"
-                                value={ingredient.amount}
-                                onChange={(e) => handleIngredientChange(index, 'amount', e.target.value)}
-                            />
-                        </Grid>
-                        <Grid item xs={2}>
-                            <IconButton
-                                onClick={() => handleRemoveIngredient(index)}
-                                disabled={recipeData.ingredients.length === 1}
-                            >
-                                <RemoveCircleOutline />
-                            </IconButton>
-                        </Grid>
-                    </Grid>
-                ))}
-
-                <Box mt={2}>
-                    <Button startIcon={<AddCircleOutline />} onClick={handleAddIngredient}>
-                        材料を追加
-                    </Button>
-                </Box>
-
-                <Box sx={{ mt: 2, display: 'flex', justifyContent: 'flex-end' }}>
-                    <Button variant="contained" color="primary" onClick={handleSubmit}>
-                        {recipeId ? '更新' : '登録'}
-                    </Button>
-                </Box>
-            </Paper>
+                    <Box sx={{ mt: 2, display: 'flex', justifyContent: 'flex-end' }}>
+                        <Button variant="contained" color="primary" onClick={handleSubmit}>
+                            {recipeId ? '更新' : '登録'}
+                        </Button>
+                    </Box>
+                </Paper>
+            </Layout>
         </>
     );
 };

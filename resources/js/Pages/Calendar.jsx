@@ -3,8 +3,6 @@ import axios from 'axios';
 import dayjs from 'dayjs';
 import 'dayjs/locale/ja';
 
-import { Head } from '@inertiajs/react';
-
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
@@ -12,11 +10,12 @@ import TextField from '@mui/material/TextField';
 import Icon from '@mui/material/Icon';
 import Button from '@mui/material/Button';
 
-import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
+import Layout from '@/Layouts/Layout';
 import WeekArea from '@/Components/CalendarComponents/WeekArea';
 import DateArea from '@/Components/CalendarComponents/DateArea';
 import IngredientsListModal from '@/Components/CalendarComponents/IngredientsListModal';
 import RecipeModal from '@/Components/RecipeModal';
+import { Height } from '@mui/icons-material';
 
 dayjs.locale('ja');
 
@@ -36,8 +35,10 @@ const Calendar = () => {
 
     const [tabValue, setTabValue] = useState(0);
     const [recipes, setRecipes] = useState([]);
+    const [selectRecipes, setSelectRecipes] = useState({});
     const [fetchRecipeNames, setFetchRecipeNames] = useState({});
     const [recipeNames, setRecipeNames] = useState({});
+    const [recipeURLs, setRecipeURLs] = useState({});
     const [memos, setMemos] = useState({});
     const [ingredients, setIngredients] = useState({});
 
@@ -89,6 +90,7 @@ const Calendar = () => {
                     });
                     setFetchRecipeNames(recipeMap);
                     setRecipeNames(recipeMap);
+                    setRecipeURLs(recipeMap);
                     setMemos(memoMap);
                     setIngredients(ingredientMap);
                 }
@@ -159,9 +161,11 @@ const Calendar = () => {
             newYear--;
         } else if (newMonth > 12) {
             newMonth = 1;
-            newYear++;
+            newYear++
         }
 
+        const newDate = dayjs(`${newYear}-${newMonth}-01`);
+        setSelectedDate(newDate);
         setCurrentMonth(newMonth);
         setCurrentYear(newYear);
     };
@@ -178,28 +182,57 @@ const Calendar = () => {
         );
     };
 
+    const parseAmount = (raw) => {
+        const str = raw.trim();
+
+        let m = str.match(/^(\d+(?:\.\d+)?)[\s]*(.+)$/);
+        if (m) {
+            return { value: parseFloat(m[1]), unit: m[2].trim() };
+        }
+
+        m = str.match(/^(.+?)[\s]*(\d+(?:\.\d+)?)$/);
+        if (m) {
+            return { value: parseFloat(m[2]), unit: m[1].trim() };
+        }
+
+        return null;
+    };
+
     const createList = () => {
-        const mergedIngredients = {};
+        const mergedIngredients = {}; 
 
         listArray.forEach(date => {
             const data = ingredients[date];
             if (data) {
-                Object.values(data).forEach((items) => {
-                    Object.values(items).forEach(({name, amount}) => {
-                        if (mergedIngredients[name]) {
-                            mergedIngredients[name] += Number(amount);
-                        } else {
-                            mergedIngredients[name] = Number(amount);
+                Object.values(data).forEach(items => {
+                    Object.values(items).forEach(({ name, amount }) => {
+
+                        const parsed = parseAmount(amount);
+                        if (!parsed) return;
+
+                        const { value, unit } = parsed;
+
+                        if (!mergedIngredients[name]) {
+                            mergedIngredients[name] = {};
                         }
+
+                        if (!mergedIngredients[name][unit]) {
+                            mergedIngredients[name][unit] = 0;
+                        }
+
+                        mergedIngredients[name][unit] += value;
                     });
                 });
             }
         });
 
-        const finalList = Object.entries(mergedIngredients).map(([name, amount]) => ({
-            name,
-            amount
-        }));
+        const finalList = Object.entries(mergedIngredients).map(([name, unitMap]) => {
+            const amountStr = Object.entries(unitMap)
+                .map(([unit, value]) => `${value}${unit}`)
+                .join("、");
+
+            return { name, amount: amountStr };
+        });
 
         setIngredientsSumList(finalList);
         changeMode(false);
@@ -212,7 +245,7 @@ const Calendar = () => {
             const formatSelectedDate = dayjs(selectedDate).format('YYYY-MM-DD');
             const timeOfDayList = [1, 2, 3];
             const timeOfDay = timeOfDayList[tabValue];
-    
+
             if (!recipeNames?.[formatSelectedDate]?.[timeOfDay]) {
                 return alert('レシピ名は必須です');
             }
@@ -224,10 +257,11 @@ const Calendar = () => {
             const ingredientList = Object.values(ingredients[formatSelectedDate][timeOfDay]);
 
             const payload = {
-                recipes_id: null,
+                recipes_id: selectRecipes?.[formatSelectedDate]?.[timeOfDay] ?? null,
                 date: formatSelectedDate,
                 time_zone_type: timeOfDay,
                 name: recipeNames[formatSelectedDate][timeOfDay],
+                url: recipeURLs[formatSelectedDate][timeOfDay],
                 ingredients: ingredientList ?? [],
                 memo: memos?.[formatSelectedDate]?.[timeOfDay] ?? null,
             };
@@ -245,15 +279,7 @@ const Calendar = () => {
 
     return (
         <>
-            <AuthenticatedLayout
-                header={
-                    <h2 className="text-xl font-semibold leading-tight text-gray-800">
-                        カレンダー
-                    </h2>
-                }
-            >
-                <Head title="Dashboard" />
-
+            <Layout>
                 <div className="p-4">
                     <div className="calendar-header flex justify-between items-center mb-4">
                         <button onClick={() => changeMonth(-1)}>
@@ -262,6 +288,7 @@ const Calendar = () => {
 
                         <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="ja">
                             <DatePicker
+                                sx={{ Height: 290 }}
                                 label="月を選択"
                                 views={['month', 'year']}
                                 format="YYYY年MM月"
@@ -273,7 +300,6 @@ const Calendar = () => {
                                         setCurrentMonth(newValue.month() + 1);
                                     }
                                 }}
-                                renderInput={(params) => <TextField {...params} />}
                             />
                         </LocalizationProvider>
                         <button onClick={() => changeMonth(1)}>
@@ -281,7 +307,7 @@ const Calendar = () => {
                         </button>
                     </div>
 
-                    <div className="flex m-[16px] leading-[38px]">
+                    <div className="flex my-[16px] leading-[38px]">
                         {mode ? <p className="mr-[8px]">一覧に追加したい日付をクリックしてください</p> : <Button variant="contained" className="border border-black rounded-sm p-[6px]" onClick={() => changeMode()}>
                             必要食材一覧作成
                         </Button>
@@ -339,64 +365,76 @@ const Calendar = () => {
                         </div>
                     </div>
                 </div>
+            </Layout>
 
-                <IngredientsListModal
-                    ingredientsSumList={ingredientsSumList}
-                    show={showIngredientsModal}
-                    onClose={() => setShowIngredientsModal(false)}
-                />
+            <IngredientsListModal
+                ingredientsSumList={ingredientsSumList}
+                show={showIngredientsModal}
+                onClose={() => setShowIngredientsModal(false)}
+            />
 
-                <RecipeModal
-                    selectedDate={dayjs(selectedDate).format('YYYY-MM-DD')}
-                    tabValue={tabValue}
-                    setTabValue={setTabValue}
-                    recipes={recipes}
-                    recipeNames={recipeNames}
-                    setRecipeNames={setRecipeNames}
-                    ingredients={ingredients}
-                    setIngredients={setIngredients}
-                    memos={memos}
-                    setMemos={setMemos}
-                    show={showModal}
-                    onClose={() => {
-                        const dateStr = dayjs(selectedDate).format('YYYY-MM-DD');
-                        const timeOfDays = [1, 2, 3];
+            <RecipeModal
+                selectedDate={dayjs(selectedDate).format('YYYY-MM-DD')}
+                tabValue={tabValue}
+                setTabValue={setTabValue}
+                recipes={recipes}
+                selectRecipes={selectRecipes}
+                setSelectRecipes={setSelectRecipes}
+                recipeNames={recipeNames}
+                setRecipeNames={setRecipeNames}
+                recipeURLs={recipeURLs}
+                setRecipeURLs={setRecipeURLs}
+                ingredients={ingredients}
+                setIngredients={setIngredients}
+                memos={memos}
+                setMemos={setMemos}
+                show={showModal}
+                onClose={() => {
+                    const dateStr = dayjs(selectedDate).format('YYYY-MM-DD');
+                    const timeOfDays = [1, 2, 3];
 
-                        timeOfDays.map((timeOfDay) => {
-                            const exists = fetchRecipeNames[dateStr]?.[timeOfDay];
+                    timeOfDays.map((timeOfDay) => {
+                        const exists = fetchRecipeNames[dateStr]?.[timeOfDay];
 
-                            if (!exists) {
-                                setRecipeNames((prev) => ({
-                                    ...prev,
-                                    [dateStr]: {
-                                        ...(prev[dateStr] || {}),
-                                        [timeOfDay]: '',
-                                    },
-                                }));
+                        if (!exists) {
+                            setRecipeNames((prev) => ({
+                                ...prev,
+                                [dateStr]: {
+                                    ...(prev[dateStr] || {}),
+                                    [timeOfDay]: '',
+                                },
+                            }));
 
-                                setIngredients((prev) => ({
-                                    ...prev,
-                                    [dateStr]: {
-                                        ...(prev[dateStr] || {}),
-                                        [timeOfDay]: [],
-                                    },
-                                }));
+                            setRecipeURLs((prev) => ({
+                                ...prev,
+                                [dateStr]: {
+                                    ...(prev[dateStr] || {}),
+                                    [timeOfDay]: '',
+                                },
+                            }));
 
-                                setMemos((prev) => ({
-                                    ...prev,
-                                    [dateStr]: {
-                                        ...(prev[dateStr] || {}),
-                                        [timeOfDay]: '',
-                                    },
-                                }));
-                            }
-                        });
+                            setIngredients((prev) => ({
+                                ...prev,
+                                [dateStr]: {
+                                    ...(prev[dateStr] || {}),
+                                    [timeOfDay]: [],
+                                },
+                            }));
 
-                        setShowModal(false);
-                    }}
-                    onRegister={handleRegister}
-                />
-            </AuthenticatedLayout>
+                            setMemos((prev) => ({
+                                ...prev,
+                                [dateStr]: {
+                                    ...(prev[dateStr] || {}),
+                                    [timeOfDay]: '',
+                                },
+                            }));
+                        }
+                    });
+
+                    setShowModal(false);
+                }}
+                onRegister={handleRegister}
+            />
         </>
     );
 };

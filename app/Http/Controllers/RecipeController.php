@@ -27,7 +27,7 @@ class RecipeController extends Controller
                 ->where('users_id', $userId)
                 ->where('delete_flg', 0)
                 ->get();
-    
+
             return response()->json(['recipes' => $recipes]);
         } catch (\Exception $e) {
             \Log::error('Error in get_recipes: ' . $e->getMessage());
@@ -62,6 +62,7 @@ class RecipeController extends Controller
                 $recipe = Recipe::create([
                     'users_id' => $userId,
                     'name' => $data['name'],
+                    'url' => $data['url']
                 ]);
 
                 $insertData = [];
@@ -78,6 +79,7 @@ class RecipeController extends Controller
                     
                 $recipe->update([
                         'name' => $data['name'],
+                        'url' => $data['url'],
                         'delete_flg' => 0,
                     ]);
 
@@ -239,10 +241,12 @@ class RecipeController extends Controller
             $userId = Auth::id();
 
             $recipe_id = null;
-            if (!$data['recipes_id']) {
+            \Log::info($data);
+            if (empty($data['recipes_id'])) {
                 $recipe_id = Recipe::create([
                     'users_id' => $userId,
                     'name' => $data['name'],
+                    'url' => $data['url'] ?? null
                 ])->id;
 
                 $insertData = [];

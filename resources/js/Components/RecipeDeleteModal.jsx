@@ -1,8 +1,12 @@
-import { useEffect, useState } from "react";
-
-import Box from '@mui/material/Box';
-
-import Modal from '@/Components/Modal';
+import React from "react";
+import {
+    Dialog,
+    DialogTitle,
+    DialogContent,
+    DialogActions,
+    Button,
+    Box,
+} from "@mui/material";
 
 const RecipeDeleteModal = ({
     recipeName,
@@ -11,29 +15,40 @@ const RecipeDeleteModal = ({
     onDelete,
 }) => {
     return (
-        <Modal show={show} onClose={onClose}>
-            <div className="pt-4">
-                <Box sx={{ mt: 2 }}>
-                    {recipeName ? `${recipeName}を削除してもよろしいですか？` : 'このレシピを削除してもよろしいですか？'}
+        <Dialog
+            open={show}
+            onClose={onClose}
+            maxWidth="xs"
+            fullWidth
+        >
+            <DialogTitle>レシピ削除</DialogTitle>
+
+            <DialogContent dividers>
+                <Box sx={{ mt: 1 }}>
+                    {recipeName
+                        ? `${recipeName} を削除してもよろしいですか？`
+                        : "このレシピを削除してもよろしいですか？"}
                 </Box>
+            </DialogContent>
 
-                <div className="flex justify-end bg-gray-100 p-4 border-t-2 border-solid">
-                    <button
-                        onClick={onClose}
-                        className="bg-red-500 text-white mr-4 px-4 py-2 rounded"
-                    >
-                        閉じる
-                    </button>
+            <DialogActions>
+                <Button
+                    onClick={onClose}
+                    variant="contained"
+                    color="error"
+                >
+                    閉じる
+                </Button>
 
-                    <button
-                        onClick={onDelete}
-                        className="bg-blue-500 text-white px-4 py-2 rounded"
-                    >
-                        削除
-                    </button>
-                </div>
-            </div>
-        </Modal>
+                <Button
+                    onClick={onDelete}
+                    variant="contained"
+                    color="primary"
+                >
+                    削除
+                </Button>
+            </DialogActions>
+        </Dialog>
     );
 };
 

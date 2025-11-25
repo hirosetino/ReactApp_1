@@ -3,6 +3,7 @@ import axios from 'axios';
 
 import Button from '@mui/material/Button';
 
+import Layout from '@/Layouts/Layout';
 import RecipeCard from '@/Components/RecipeCard';
 import RecipeDeleteModal from '@/Components/RecipeDeleteModal';
 
@@ -92,32 +93,34 @@ const Recipe = () => {
 
     return (
         <>
-            <Button variant="outlined" onClick={() => movePage(null)}>新規登録</Button>
-            <div className="flex justify-center flex-wrap items-start pt-[16px] pl-[16px]">
-                {recipes.map(recipe => (
-                    <RecipeCard
-                        key={recipe.id}
-                        recipe={recipe}
-                        image={recipe.image_path}
-                        anchorEl={anchorElMap[recipe.id] || null}
-                        onAnchorEl={(e) => handleMenuOpen(recipe.id, e)}
-                        offAnchorEl={() => handleMenuClose(recipe.id)}
-                        showDeleteModal={() => handleSetRecipe(recipe.id)}
-                        movePage={() => movePage(recipe.id)}
-                        favorite={favoriteIds.includes(recipe.id)}
-                        onFavorite={() => handleFavoriteToggle(recipe.id)}
-                        expanded={expandedCardIds.includes(recipe.id)}
-                        onExpand={() => handleExpandedCardToggle(recipe.id)}
-                    />
-                ))}
-            </div>
+            <Layout>
+                <Button variant="outlined" onClick={() => movePage(null)}>新規登録</Button>
+                <div className="flex justify-center flex-wrap items-start pt-[16px] pl-[16px]">
+                    {recipes.map(recipe => (
+                        <RecipeCard
+                            key={recipe.id}
+                            recipe={recipe}
+                            image={recipe.image_path}
+                            anchorEl={anchorElMap[recipe.id] || null}
+                            onAnchorEl={(e) => handleMenuOpen(recipe.id, e)}
+                            offAnchorEl={() => handleMenuClose(recipe.id)}
+                            showDeleteModal={() => handleSetRecipe(recipe.id)}
+                            movePage={() => movePage(recipe.id)}
+                            favorite={favoriteIds.includes(recipe.id)}
+                            onFavorite={() => handleFavoriteToggle(recipe.id)}
+                            expanded={expandedCardIds.includes(recipe.id)}
+                            onExpand={() => handleExpandedCardToggle(recipe.id)}
+                        />
+                    ))}
+                </div>
 
-            <RecipeDeleteModal
-                recipeName={targetRecipe?.name}
-                show={showDeleteModal}
-                onClose={() => setShowDeleteModal(false)}
-                onDelete={deleteRecipe}
-            />
+                <RecipeDeleteModal
+                    recipeName={targetRecipe?.name}
+                    show={showDeleteModal}
+                    onClose={() => setShowDeleteModal(false)}
+                    onDelete={deleteRecipe}
+                />
+            </Layout>
         </>
     );
 };

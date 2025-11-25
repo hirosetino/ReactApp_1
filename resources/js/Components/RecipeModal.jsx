@@ -3,24 +3,37 @@ import React, { useState } from 'react';
 import dayjs from 'dayjs';
 import 'dayjs/locale/ja';
 
-import CancelPresentationIcon from '@mui/icons-material/CancelPresentation';
-import Box from '@mui/material/Box';
-import Tabs from '@mui/material/Tabs';
-import Tab from '@mui/material/Tab';
-import InputLabel from '@mui/material/InputLabel';
-import MenuItem from '@mui/material/MenuItem';
-import FormControl from '@mui/material/FormControl';
-import Select from '@mui/material/Select';
+import { AddCircleOutline, RemoveCircleOutline } from '@mui/icons-material';
 
-import Modal from '@/Components/Modal';
+import {
+    Dialog,
+    DialogTitle,
+    DialogContent,
+    DialogActions,
+    Box,
+    Grid,
+    Tabs,
+    Tab,
+    TextField,
+    InputLabel,
+    Link,
+    Button,
+    MenuItem,
+    FormControl,
+    Select
+} from "@mui/material";
 
 const RecipeModal = ({
     selectedDate,
     tabValue,
     setTabValue,
     recipes,
+    selectRecipes,
+    setSelectRecipes,
     recipeNames,
     setRecipeNames,
+    recipeURLs,
+    setRecipeURLs,
     ingredients,
     setIngredients,
     memos,
@@ -29,8 +42,6 @@ const RecipeModal = ({
     onClose,
     onRegister
 }) => {
-    const [selectRecipes, setSelectRecipes] = useState({});
-
     const timeOfDayList = [1, 2, 3];
     const timeOfDay = timeOfDayList[tabValue];
 
@@ -73,6 +84,14 @@ const RecipeModal = ({
             [selectedDate]: {
                 ...(prev[selectedDate] || {}),
                 [timeOfDay]: recipe.name || '',
+            },
+        }));
+
+        setRecipeURLs((prev) => ({
+            ...prev,
+            [selectedDate]: {
+                ...(prev[selectedDate] || {}),
+                [timeOfDay]: recipe.url || '',
             },
         }));
 
@@ -122,146 +141,202 @@ const RecipeModal = ({
     };
 
     return (
-        <Modal show={show} onClose={onClose}>
-            <div className="pt-4">
+        <Dialog
+            open={show}
+            onClose={onClose}
+            fullWidth
+            maxWidth="md"
+            scroll="paper"
+        >
+            <DialogTitle>
+                {dayjs(selectedDate).format("YYYY年MM月DD日")}
+            </DialogTitle>
+
+            <DialogContent dividers>
                 <Tabs value={tabValue} onChange={handleTabChange}>
                     <Tab label="朝" />
                     <Tab label="昼" />
                     <Tab label="夜" />
                 </Tabs>
 
-                <FormControl sx={{ width: 300, m: 2 }}>
-                    <InputLabel id="demo-simple-select-label">レシピ</InputLabel>
+                <FormControl sx={{ width: 300, mt: 3 }}>
+                    <InputLabel id="recipe-select-label">レシピ</InputLabel>
                     <Select
-                        labelId="demo-simple-select-label"
-                        id="demo-simple-select"
+                        labelId="recipe-select-label"
                         label="レシピ"
                         value={selectRecipes[selectedDate]?.[timeOfDay] ?? ''}
                         onChange={changeSelectRecipe}
                     >
                         <MenuItem value="">未選択</MenuItem>
-                        {recipes?.map((recipe) => {
-                            return (
-                                <MenuItem key={recipe.id} value={recipe.id}>{recipe.name}</MenuItem>
-                            );
-                        })}
+                        {recipes?.map((recipe) => (
+                            <MenuItem key={recipe.id} value={recipe.id}>
+                                {recipe.name}
+                            </MenuItem>
+                        ))}
                     </Select>
                 </FormControl>
 
                 <Box sx={{ mt: 2 }}>
-                    {[1, 2, 3].map((timeOfDay, idx) => (
+                    {[1, 2, 3].map((timeOfDayValue, idx) => (
                         tabValue === idx && (
-                            <div key={timeOfDay} className="max-h-[70vh] overflow-y-auto px-4 pb-4">
+                            <Box key={`tod-${selectedDate}-${timeOfDayValue}`}
+                                sx={{
+                                    maxHeight: "60vh",
+                                    overflowY: "auto",
+                                    pb: 2,
+                                }}
+                            >
                                 <h2 className="text-lg font-bold mb-2">
-                                    {dayjs(selectedDate).format('YYYY年MM月DD日')} の{timeOfDay === 1 ? '朝' : timeOfDay === 2 ? '昼' : '夜'}のレシピ登録
+                                    {dayjs(selectedDate).format('YYYY年MM月DD日')} の
+                                    {timeOfDayValue === 1 ? '朝' : timeOfDayValue === 2 ? '昼' : '夜'}のレシピ登録
                                 </h2>
 
-                                <input
-                                    type="text"
-                                    name={`recipe_name_${timeOfDay}`}
-                                    value={recipeNames[selectedDate]?.[timeOfDay] ?? ''}
-                                    onChange={(e) => {
+                                <TextField
+                                    sx={{ mb: 2 }}
+                                    fullWidth
+                                    label="レシピ名"
+                                    size="small"
+                                    value={recipeNames[selectedDate]?.[timeOfDayValue] ?? ''}
+                                    onChange={(e) =>
                                         setRecipeNames((prev) => ({
                                             ...prev,
                                             [selectedDate]: {
                                                 ...(prev[selectedDate] || {}),
-                                                [timeOfDay]: e.target.value,
+                                                [timeOfDayValue]: e.target.value,
                                             },
-                                        }));
-                                    }}
-                                    className="w-full border rounded p-2"
-                                    placeholder="レシピ名を入力"
+                                        }))
+                                    }
                                 />
 
+                                <TextField
+                                    fullWidth
+                                    label="URL"
+                                    size="small"
+                                    value={recipeURLs[selectedDate]?.[timeOfDayValue] ?? ''}
+                                    onChange={(e) =>
+                                        setRecipeURLs((prev) => ({
+                                            ...prev,
+                                            [selectedDate]: {
+                                                ...(prev[selectedDate] || {}),
+                                                [timeOfDayValue]: e.target.value,
+                                            },
+                                        }))
+                                    }
+                                />
+
+                                {recipeURLs[selectedDate]?.[timeOfDayValue] && (
+                                    <Link
+                                        href={recipeURLs[selectedDate][timeOfDayValue]}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                    >
+                                        {recipeURLs[selectedDate][timeOfDayValue]}
+                                    </Link>
+                                )}
+
                                 <h2 className="text-lg font-bold my-2">材料入力</h2>
+
                                 {selectedDate &&
-                                Array.isArray(ingredients?.[selectedDate]?.[timeOfDay]) &&
-                                ingredients[selectedDate][timeOfDay].map((ingredient, key) => (
-                                    <div key={key} className="flex items-center gap-2 mb-2">
-                                        <input
-                                            type="text"
-                                            value={ingredient?.name || ""}
-                                            onChange={(e) => {
-                                                setIngredients((prev) => {
-                                                    const updated = { ...prev };
-                                                    updated[selectedDate][timeOfDay][key] = {
-                                                        ...updated[selectedDate][timeOfDay][key],
-                                                        name: e.target.value,
-                                                    };
-                                                    return updated;
-                                                });
-                                            }}
-                                            className="border p-1 rounded"
-                                            placeholder="材料名を入力"
-                                        />
-                                        <input
-                                            type="text"
-                                            value={ingredient?.amount || ""}
-                                            onChange={(e) => {
-                                                setIngredients((prev) => {
-                                                    const updated = { ...prev };
-                                                    updated[selectedDate][timeOfDay][key] = {
-                                                        ...updated[selectedDate][timeOfDay][key],
-                                                        amount: e.target.value,
-                                                    };
-                                                    return updated;
-                                                });
-                                            }}
-                                            className="border p-1 rounded"
-                                            placeholder="量を入力"
-                                        />
-                                        <CancelPresentationIcon
-                                            onClick={() => removeIngredient(key, timeOfDay)}
-                                            className="text-red-500 cursor-pointer"
-                                        />
-                                    </div>
+                                Array.isArray(ingredients?.[selectedDate]?.[timeOfDayValue]) &&
+                                ingredients[selectedDate][timeOfDayValue].map((ingredient, index) => (
+                                    <Grid
+                                        container
+                                        mb={1}
+                                        spacing={2}
+                                        key={`${selectedDate}-${timeOfDayValue}-${index}`}
+                                        alignItems="center"
+                                    >
+                                        <Grid item xs={5}>
+                                            <TextField
+                                                fullWidth
+                                                label="材料"
+                                                size="small"
+                                                value={ingredient?.name || ""}
+                                                onChange={(e) => {
+                                                    setIngredients((prev) => {
+                                                        const updated = { ...prev };
+                                                        updated[selectedDate][timeOfDayValue][index] = {
+                                                            ...updated[selectedDate][timeOfDayValue][index],
+                                                            name: e.target.value,
+                                                        };
+                                                        return updated;
+                                                    });
+                                                }}
+                                            />
+                                        </Grid>
+
+                                        <Grid item xs={5}>
+                                            <TextField
+                                                fullWidth
+                                                label="量"
+                                                size="small"
+                                                value={ingredient?.amount || ""}
+                                                onChange={(e) => {
+                                                    setIngredients((prev) => {
+                                                        const updated = { ...prev };
+                                                        updated[selectedDate][timeOfDayValue][index] = {
+                                                            ...updated[selectedDate][timeOfDayValue][index],
+                                                            amount: e.target.value,
+                                                        };
+                                                        return updated;
+                                                    });
+                                                }}
+                                            />
+                                        </Grid>
+
+                                        <Grid item xs={2}>
+                                            <RemoveCircleOutline
+                                                onClick={() => removeIngredient(index, timeOfDayValue)}
+                                                className="text-red-500 cursor-pointer"
+                                            />
+                                        </Grid>
+                                    </Grid>
                                 ))}
-                                <button
-                                    type="button"
-                                    onClick={() => handleAddIngredient(timeOfDay)}
-                                    className="text-blue-500 underline"
-                                >
-                                    入力欄を追加
-                                </button>
+
+                                <Box mt={2}>
+                                    <Button startIcon={<AddCircleOutline />} onClick={() => handleAddIngredient(timeOfDayValue)}>
+                                        材料を追加
+                                    </Button>
+                                </Box>
 
                                 <h2 className="text-lg font-bold mb-2">メモ</h2>
                                 <textarea
                                     className="w-full border rounded p-2"
                                     placeholder="メモを入力"
                                     rows={4}
-                                    value={memos[selectedDate]?.[timeOfDay] ?? ''}
-                                    onChange={(e) => {
+                                    value={memos[selectedDate]?.[timeOfDayValue] ?? ''}
+                                    onChange={(e) =>
                                         setMemos((prev) => ({
                                             ...prev,
                                             [selectedDate]: {
                                                 ...(prev[selectedDate] || {}),
-                                                [timeOfDay]: e.target.value,
+                                                [timeOfDayValue]: e.target.value,
                                             },
-                                        }));
-                                    }}
+                                        }))
+                                    }
                                 />
-                            </div>
+                            </Box>
                         )
                     ))}
                 </Box>
+            </DialogContent>
 
-                <div className="flex justify-end bg-gray-100 p-4 border-t-2 border-solid">
-                    <button
-                        onClick={onClose}
-                        className="bg-red-500 text-white mr-4 px-4 py-2 rounded"
-                    >
-                        閉じる
-                    </button>
+            <DialogActions>
+                <button
+                    onClick={onClose}
+                    className="bg-red-500 text-white mr-4 px-4 py-2 rounded"
+                >
+                    閉じる
+                </button>
 
-                    <button
-                        onClick={onRegister}
-                        className="bg-blue-500 text-white px-4 py-2 rounded"
-                    >
-                        登録
-                    </button>
-                </div>
-            </div>
-        </Modal>
+                <button
+                    onClick={onRegister}
+                    className="bg-blue-500 text-white px-4 py-2 rounded"
+                >
+                    登録
+                </button>
+            </DialogActions>
+        </Dialog>
     );
 };
 
