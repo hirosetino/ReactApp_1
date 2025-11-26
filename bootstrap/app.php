@@ -1,9 +1,7 @@
 <?php
-
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
-use Illuminate\Http\Request;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -19,7 +17,8 @@ return Application::configure(basePath: dirname(__DIR__))
 
         // 本番のみ
         if (env('APP_ENV') !== 'local') {
-            $middleware->trustProxies('*', Request::HEADER_X_FORWARDED_ALL);
+            // Laravel 12 では HEADER_X_FORWARDED_ALL は存在しないため文字列で
+            $middleware->trustProxies('*', 'X_FORWARDED_FOR|X_FORWARDED_HOST|X_FORWARDED_PROTO|X_FORWARDED_PORT');
         }
     })
     ->withExceptions(function ($exceptions) {
