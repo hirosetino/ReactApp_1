@@ -11,21 +11,18 @@ return Application::configure(basePath: dirname(__DIR__))
         commands: __DIR__.'/../routes/console.php',
         health: '/up',
     )
-    ->withMiddleware(function (Middleware $middleware) {
+    ->withMiddleware(function ($middleware) {
         $middleware->web(append: [
             \App\Http\Middleware\HandleInertiaRequests::class,
             \Illuminate\Http\Middleware\AddLinkHeadersForPreloadedAssets::class,
         ]);
 
-        // ローカル・開発用には '*' を使うより env 判定推奨
+        // 本番のみ
         if (env('APP_ENV') !== 'local') {
-            $middleware->trustProxies(
-                proxies: '*',
-                headers: Request::HEADER_X_FORWARDED_ALL
-            );
+            $middleware->trustProxies('*', Request::HEADER_X_FORWARDED_ALL);
         }
     })
-    ->withExceptions(function (Exceptions $exceptions) {
+    ->withExceptions(function ($exceptions) {
         //
     })
     ->create();
