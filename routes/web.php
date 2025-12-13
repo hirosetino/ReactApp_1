@@ -44,3 +44,22 @@ Route::middleware('auth')->group(function () {
 });
 
 require __DIR__.'/auth.php';
+
+Route::get('/calendar', function() {
+    return Inertia::render('Calendar');
+});
+Route::get('/calendar/get_menus', [RecipeController::class, 'get_menus']);
+Route::post('/calendar/menu_post', [RecipeController::class, 'menu_post']);
+
+Route::get('/recipe', function() {
+    return Inertia::render('Recipe');
+});
+Route::get('/get_recipes', [RecipeController::class, 'get_recipes']);
+Route::post('/recipe/favorite', [RecipeController::class, 'favorite_recipe']);
+
+Route::get('/recipe/create', function() {
+    return Inertia::render('RecipeCreate');
+});
+Route::get('/get_recipe/{id}', [RecipeController::class, 'get_recipe']);
+Route::post('/recipe/create_post', [RecipeController::class, 'recipe_post']);
+Route::post('/recipe/delete', [RecipeController::class, 'delete_recipe']);
