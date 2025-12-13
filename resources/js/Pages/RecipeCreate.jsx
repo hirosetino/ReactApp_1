@@ -69,11 +69,11 @@ const RecipeCreate = () => {
                         name: r.name || '',
                         url: r.url || '',
                         ingredients: r.ingredient || [],
-                        image_path: r.image_path || null,
+                        image_path: r.image_url || null,
                     });
 
-                    if (r.image_path) {
-                        setPreview(`/${r.image_path}`);
+                    if (r.image_url) {
+                        setPreview(r.image_url);
                     }
 
                     if (r.category) {
@@ -119,7 +119,38 @@ const RecipeCreate = () => {
         setRecipeData(prev => ({ ...prev, ingredients: updated }));
     };
 
+    const validateRecipe = () => {
+        if (!recipeData.name.trim()) {
+            return 'レシピ名を入力してください';
+        }
+
+        if (!recipeData.ingredients || recipeData.ingredients.length === 0) {
+            return '材料を1つ以上追加してください';
+        }
+
+        for (let i = 0; i < recipeData.ingredients.length; i++) {
+            const ing = recipeData.ingredients[i];
+            if (!ing.name?.trim() || !ing.amount?.trim()) {
+                return '材料名と量はすべて入力してください';
+            }
+        }
+
+        return null;
+    };
+
     const handleSubmit = async () => {
+        const errorMessage = validateRecipe();
+        if (errorMessage) {
+            setSnackbar({
+                open: true,
+                message: errorMessage,
+                severity: 'warning',
+                vertical: 'top',
+                horizontal: 'center',
+            });
+            return;
+        }
+
         try {
             const formData = new FormData();
             const category = selectedCategory?.id === null ? selectedCategory?.name : selectedCategory?.id;

@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Storage;
 
 class Recipe extends Model
 {
@@ -18,6 +19,17 @@ class Recipe extends Model
         'favorite_flg',
         'delete_flg',
     ];
+
+    protected $appends = ['image_url'];
+
+    public function getImageUrlAttribute()
+    {
+        if (!$this->image_path) {
+            return null;
+        }
+
+        return Storage::disk(config('filesystems.image_disk'))->url($this->image_path);
+    }
 
     public function user()
     {
