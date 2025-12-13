@@ -210,18 +210,8 @@ class RecipeController extends Controller
                 $fileName = $recipe->id . '.' . $ext;
                 $path = $directory . '/' . $fileName;
 
-                $diskName = config('filesystems.image_disk');
-                $disk = Storage::disk($diskName);
-
-                if (!$disk->exists($directory)) {
-                    $disk->makeDirectory($directory);
-                }
-
-                if ($disk->exists($path)) {
-                    $disk->delete($path);
-                }
-
-                $image->storeAs($directory, $fileName, $diskName);
+                Storage::disk(config('filesystems.image_disk'))
+                    ->putFileAs($directory, $image, $fileName, 'public');
 
                 $recipe->update([
                     'image_path' => $path,
