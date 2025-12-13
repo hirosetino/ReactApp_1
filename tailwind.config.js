@@ -15,8 +15,17 @@ export default {
             fontFamily: {
                 sans: ['Figtree', ...defaultTheme.fontFamily.sans],
             },
+
+            // カスタムブレークポイント追加
+            screens: {
+                'xs': '0px',  // スマホ
+                'sm': '600px',  // デフォルト sm
+                'md': '900px',  // タブレット横
+                'lg': '1200px', // PC
+                'xl': '1536px', // 大型画面
+            },
         },
     },
 
-    plugins: [forms],
+    plugins: [],
 };

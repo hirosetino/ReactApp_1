@@ -1,4 +1,4 @@
-import { useEffect, useState, StrictMode } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import axios from 'axios';
 import dayjs from 'dayjs';
 import 'dayjs/locale/ja';
@@ -6,22 +6,18 @@ import 'dayjs/locale/ja';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
-import TextField from '@mui/material/TextField';
-import Icon from '@mui/material/Icon';
-import Button from '@mui/material/Button';
+import { Icon, Button, IconButton, Snackbar, Alert } from '@mui/material';
 
 import Layout from '@/Layouts/Layout';
 import WeekArea from '@/Components/CalendarComponents/WeekArea';
 import DateArea from '@/Components/CalendarComponents/DateArea';
 import IngredientsListModal from '@/Components/CalendarComponents/IngredientsListModal';
 import RecipeModal from '@/Components/RecipeModal';
-import { Height } from '@mui/icons-material';
 
 dayjs.locale('ja');
 
 const Calendar = () => {
     const today = dayjs();
-    const [thisMonth, setThisMonth] = useState('');
     const [currentYear, setCurrentYear] = useState(today.year());
     const [currentMonth, setCurrentMonth] = useState(today.month() + 1);
 
@@ -30,82 +26,35 @@ const Calendar = () => {
     const [ingredientsSumList, setIngredientsSumList] = useState([]);
     const [showIngredientsModal, setShowIngredientsModal] = useState(false);
 
+    // modal / selected date
     const [showModal, setShowModal] = useState(false);
-    const [selectedDate, setSelectedDate] = useState(dayjs(`${currentYear}-${String(currentMonth).padStart(2, '0')}`));
+    const [selectedDate, setSelectedDate] = useState(dayjs(`${currentYear}-${String(currentMonth).padStart(2, '0')}-01`));
 
-    const [tabValue, setTabValue] = useState(0);
+    // tab (1=朝,2=昼,3=夜)
+    const [tabValue, setTabValue] = useState(1);
+
+    const [categories, setCategories] = useState([]);
+
+    // recipe library (optional, used for selecting existing recipes)
     const [recipes, setRecipes] = useState([]);
-    const [selectRecipes, setSelectRecipes] = useState({});
-    const [fetchRecipeNames, setFetchRecipeNames] = useState({});
-    const [recipeNames, setRecipeNames] = useState({});
-    const [recipeURLs, setRecipeURLs] = useState({});
-    const [memos, setMemos] = useState({});
-    const [ingredients, setIngredients] = useState({});
+
+    // unified dailyRecipes structure (A方式)
+    // dailyRecipes = { "YYYY-MM-DD": { 1: [recipeObj, ...], 2: [...], 3: [...] }, ... }
+    const [dailyRecipes, setDailyRecipes] = useState({});
 
     const [refreshMenus, setRefreshMenus] = useState(false);
 
-    useEffect(() => {
-        axios.get('/get_recipes')
-            .then((res) => {
-                setRecipes(res.data.recipes);
-            })
-            .catch((err) => {
-                console.error('APIエラー:', err);
-            })
-            .finally(() => {
-                setRefreshMenus(false);
-            });
-    }, [refreshMenus]);
+    const pickerRef = useRef(null);
 
-    useEffect(() => {
-        axios.get('/calendar/get_menus', {
-            params: {
-                year: currentYear,
-                month: currentMonth,
-            }
-        })
-            .then((res) => {
-                const fetchedMenus = res.data.menus;
-                if (Array.isArray(fetchedMenus)) {
-                    const recipeMap = {};
-                    const memoMap = {};
-                    const ingredientMap = {};
+    const [snackbar, setSnackbar] = useState({
+        open: false,
+        message: '',
+        severity: 'success',
+        vertical: 'top',
+        horizontal: 'center',
+    });
 
-                    fetchedMenus.forEach(menu => {
-                        if (menu.recipe && menu.recipe.name) {
-                            const timeOfDay = menu.time_zone_type;
-                            if (!recipeMap[menu.date]) {
-                                recipeMap[menu.date] = {};
-                            }
-                            if (!memoMap[menu.date]) {
-                                memoMap[menu.date] = {};
-                            }
-                            if (!ingredientMap[menu.date]) {
-                                ingredientMap[menu.date] = {};
-                            }
-                            recipeMap[menu.date][timeOfDay] = menu.recipe.name;
-                            memoMap[menu.date][timeOfDay] = menu.memo;
-                            ingredientMap[menu.date][timeOfDay] = menu.recipe.ingredient;
-                        }
-                    });
-                    setFetchRecipeNames(recipeMap);
-                    setRecipeNames(recipeMap);
-                    setRecipeURLs(recipeMap);
-                    setMemos(memoMap);
-                    setIngredients(ingredientMap);
-                }
-            })
-            .catch((err) => {
-                console.error('APIエラー:', err);
-            })
-            .finally(() => {
-                setRefreshMenus(false);
-            });
-
-        const formattedDate = `${currentYear}年${currentMonth}月`;
-        setThisMonth(formattedDate);
-    }, [currentYear, currentMonth, refreshMenus]);
-
+    // calendar helpers
     const weekday = ["日", "月", "火", "水", "木", "金", "土"];
     const startWeek = 1;
     const rotatedWeekday = [...weekday.slice(startWeek), ...weekday.slice(0, startWeek)];
@@ -113,7 +62,6 @@ const Calendar = () => {
     const firstDay = dayjs(`${currentYear}-${String(currentMonth).padStart(2, '0')}-01`);
     const firstWeekDay = firstDay.day();
     const offset = (firstWeekDay - startWeek + 7) % 7;
-
     const lastDay = firstDay.endOf('month').date();
 
     const prevMonthDate = firstDay.subtract(1, 'month').endOf('month');
@@ -152,219 +100,417 @@ const Calendar = () => {
         })
     ];
 
+    useEffect(() => {
+        axios.get('/get_categories')
+            .then((res) => {
+                const obj = res.data.categories ?? res.data;
+
+                setCategories(obj);
+            })
+            .catch((err) => {
+                console.error('カテゴリ取得エラー:', err);
+            });
+    }, []);
+
+    // fetch recipe library (optional)
+    useEffect(() => {
+        axios.get('/get_recipes')
+        .then(res => setRecipes(res.data.recipes || []))
+        .catch(err => console.error('get_recipes error', err));
+    }, [refreshMenus]);
+
+    // fetch menus (API returns rows: 1 row = 1 menu/recipe)
+    useEffect(() => {
+        const startDate = days[0].date;
+        const endDate = days[days.length - 1].date;
+
+        axios.get('/calendar/get_menus', {
+            params: { startDate: startDate, endDate: endDate }
+        })
+        .then(res => {
+            const fetchedMenus = res.data.menus || [];
+            // build dailyRecipes
+            const next = {};
+            fetchedMenus.forEach(menu => {
+                // menu: { date, time_zone_type, memo, recipes_id, recipe: { id, name, ingredient: [...] } }
+                const dateKey = menu.date;
+                const time = Number(menu.time_zone_type) || 1;
+
+                if (!next[dateKey]) next[dateKey] = { 1: [], 2: [], 3: [] };
+                // transform to front recipe structure
+                const recipeObj = {
+                    recipes_id: menu.recipes_id ?? (menu.recipe?.id ?? null),
+                    name: menu.recipe?.name ?? '',
+                    category: menu.recipe?.category ?? null,
+                    url: menu.recipe?.url ?? '', // backend doesn't return url, left empty
+                    memo: menu.memo ?? '',
+                    ingredient: (menu.recipe?.ingredient || []).map(ing => ({
+                        // backend ingredient has { name, amount }
+                        name: ing.name ?? '',
+                        amount: ing.amount ?? '',
+                    })),
+                    isModified: false,
+                    isSelectedFromDropdown: false,
+                };
+                next[dateKey][time].push(recipeObj);
+            });
+            setDailyRecipes(next);
+        })
+        .catch(err => console.error('get_menus error', err))
+        .finally(() => setRefreshMenus(false));
+        const formattedDate = `${currentYear}年${currentMonth}月`;
+    }, [currentYear, currentMonth, refreshMenus]);
+
     const changeMonth = (amount) => {
         let newMonth = currentMonth + amount;
         let newYear = currentYear;
-
-        if (newMonth < 1) {
-            newMonth = 12;
-            newYear--;
-        } else if (newMonth > 12) {
-            newMonth = 1;
-            newYear++
-        }
-
-        const newDate = dayjs(`${newYear}-${newMonth}-01`);
+        if (newMonth < 1) { newMonth = 12; newYear--; }
+        else if (newMonth > 12) { newMonth = 1; newYear++; }
+        const newDate = dayjs(`${newYear}-${String(newMonth).padStart(2, '0')}-01`);
         setSelectedDate(newDate);
         setCurrentMonth(newMonth);
         setCurrentYear(newYear);
     };
 
-    const changeMode = () => {
-        setMode(!mode);
-    };
+    const changeMode = () => setMode(prev => !prev);
 
     const changeListArray = (item) => {
-        setListArray((prev) => 
-            prev.includes(item)
-                ? prev.filter(i => i !== item)
-                : [...prev, item]
-        );
+        setListArray(prev => prev.includes(item) ? prev.filter(i => i !== item) : [...prev, item]);
     };
 
+    // create shopping list from dailyRecipes
     const parseAmount = (raw) => {
+        if (!raw || typeof raw !== 'string') return null;
         const str = raw.trim();
-
         let m = str.match(/^(\d+(?:\.\d+)?)[\s]*(.+)$/);
-        if (m) {
-            return { value: parseFloat(m[1]), unit: m[2].trim() };
-        }
-
+        if (m) return { value: parseFloat(m[1]), unit: m[2].trim() };
         m = str.match(/^(.+?)[\s]*(\d+(?:\.\d+)?)$/);
-        if (m) {
-            return { value: parseFloat(m[2]), unit: m[1].trim() };
-        }
-
+        if (m) return { value: parseFloat(m[2]), unit: m[1].trim() };
         return null;
     };
 
     const createList = () => {
-        const mergedIngredients = {}; 
-
+        const mergedIngredients = {};
         listArray.forEach(date => {
-            const data = ingredients[date];
-            if (data) {
-                Object.values(data).forEach(items => {
-                    Object.values(items).forEach(({ name, amount }) => {
-
+            const day = dailyRecipes[date];
+            if (!day) return;
+            [1,2,3].forEach(t => {
+                (day[t] || []).forEach(recipe => {
+                    (recipe.ingredient || []).forEach(({ name, amount }) => {
                         const parsed = parseAmount(amount);
                         if (!parsed) return;
-
                         const { value, unit } = parsed;
-
-                        if (!mergedIngredients[name]) {
-                            mergedIngredients[name] = {};
-                        }
-
-                        if (!mergedIngredients[name][unit]) {
-                            mergedIngredients[name][unit] = 0;
-                        }
-
+                        if (!mergedIngredients[name]) mergedIngredients[name] = {};
+                        if (!mergedIngredients[name][unit]) mergedIngredients[name][unit] = 0;
                         mergedIngredients[name][unit] += value;
                     });
                 });
-            }
+            });
         });
 
         const finalList = Object.entries(mergedIngredients).map(([name, unitMap]) => {
-            const amountStr = Object.entries(unitMap)
-                .map(([unit, value]) => `${value}${unit}`)
-                .join("、");
-
+            const amountStr = Object.entries(unitMap).map(([unit, value]) => `${value}${unit}`).join('、');
             return { name, amount: amountStr };
         });
 
         setIngredientsSumList(finalList);
-        changeMode(false);
+        setMode(false);
         setShowIngredientsModal(true);
         setListArray([]);
     };
 
+    // handle register (POST multiple recipes)
     const handleRegister = async () => {
         try {
-            const formatSelectedDate = dayjs(selectedDate).format('YYYY-MM-DD');
-            const timeOfDayList = [1, 2, 3];
-            const timeOfDay = timeOfDayList[tabValue];
+            const dateKey = dayjs(selectedDate).format('YYYY-MM-DD');
 
-            if (!recipeNames?.[formatSelectedDate]?.[timeOfDay]) {
-                return alert('レシピ名は必須です');
-            }
-
-            if (!ingredients[formatSelectedDate] || !ingredients[formatSelectedDate][timeOfDay]) {
-                return alert('材料情報は１つ以上必須です');
-            }
-
-            const ingredientList = Object.values(ingredients[formatSelectedDate][timeOfDay]);
+            // 朝・昼・夜まとめて送信する構造にする
+            const menusForPost = {
+                1: (dailyRecipes?.[dateKey]?.[1] || [])
+                    .filter(r => !Boolean(r?.isDeleted))
+                    .map(r => ({
+                        recipes_id: r.recipes_id || null,
+                        name: r.name,
+                        category: r.category,
+                        url: r.url || null,
+                        memo: r.memo || null,
+                        ingredients: (r.ingredient || []).map(i => ({
+                            name: i.name,
+                            amount: i.amount
+                        }))
+                    })),
+                2: (dailyRecipes?.[dateKey]?.[2] || [])
+                    .filter(r => !Boolean(r?.isDeleted))
+                    .map(r => ({
+                        recipes_id: r.recipes_id || null,
+                        name: r.name,
+                        category: r.category,
+                        url: r.url || null,
+                        memo: r.memo || null,
+                        ingredients: (r.ingredient || []).map(i => ({
+                            name: i.name,
+                            amount: i.amount
+                        }))
+                    })),
+                3: (dailyRecipes?.[dateKey]?.[3] || [])
+                    .filter(r => !Boolean(r?.isDeleted))
+                    .map(r => ({
+                        recipes_id: r.recipes_id || null,
+                        name: r.name,
+                        category: r.category,
+                        url: r.url || null,
+                        memo: r.memo || null,
+                        ingredients: (r.ingredient || []).map(i => ({
+                            name: i.name,
+                            amount: i.amount
+                        }))
+                    })),
+            };
 
             const payload = {
-                recipes_id: selectRecipes?.[formatSelectedDate]?.[timeOfDay] ?? null,
-                date: formatSelectedDate,
-                time_zone_type: timeOfDay,
-                name: recipeNames[formatSelectedDate][timeOfDay],
-                url: recipeURLs[formatSelectedDate][timeOfDay],
-                ingredients: ingredientList ?? [],
-                memo: memos?.[formatSelectedDate]?.[timeOfDay] ?? null,
+                date: dateKey,
+                menus: menusForPost,
             };
 
             await axios.post('/calendar/menu_post', payload);
-
-            alert('登録に成功しました');
+            setSnackbar({
+                open: true,
+                message: '登録に成功しました',
+                severity: 'success',
+                vertical: 'top',
+                horizontal: 'center'
+            });
             setShowModal(false);
             setRefreshMenus(true);
-        } catch (error) {
-            console.error('登録エラー:', error);
-            alert('登録に失敗しました');
+
+        } catch (err) {
+            console.error('登録エラー', err);
+            setSnackbar({
+                open: true,
+                message: '登録に失敗しました',
+                severity: 'error',
+                vertical: 'top',
+                horizontal: 'center'
+            });
         }
     };
 
     return (
         <>
             <Layout>
-                <div className="p-4">
-                    <div className="calendar-header flex justify-between items-center mb-4">
-                        <button onClick={() => changeMonth(-1)}>
-                            <Icon>keyboard_arrow_left</Icon>
-                        </button>
+                <>
+                    <div className="calendar-header flex justify-start items-center mb-4">
+                        <IconButton onClick={() => changeMonth(-1)}><Icon>keyboard_arrow_left</Icon></IconButton>
+                        <IconButton onClick={() => changeMonth(1)}><Icon>keyboard_arrow_right</Icon></IconButton>
 
                         <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="ja">
-                            <DatePicker
-                                sx={{ Height: 290 }}
-                                label="月を選択"
-                                views={['month', 'year']}
-                                format="YYYY年MM月"
-                                value={selectedDate}
-                                onChange={(newValue) => {
-                                    if (newValue?.isValid?.()) {
+                            <div className="inline-block relative ml-4">
+                                {/* 非表示 DatePicker */}
+                                <DatePicker
+                                    views={['month', 'year']}
+                                    format="YYYY年MM月"
+                                    value={selectedDate}
+                                    onChange={(newValue) => {
+                                        if (newValue?.isValid?.()) {
                                         setSelectedDate(newValue);
                                         setCurrentYear(newValue.year());
                                         setCurrentMonth(newValue.month() + 1);
-                                    }
-                                }}
-                            />
+                                        }
+                                    }}
+                                    slotProps={{
+                                        textField: {
+                                        sx: {
+                                            opacity: 0,
+                                            pointerEvents: "none",
+                                            position: "absolute",
+                                            inset: 0,
+                                            width: "100%",
+                                            height: "100%",
+                                        },
+                                        },
+                                    }}
+                                    ref={pickerRef}
+                                />
+
+                                {/* 表示用文字 */}
+                                <span
+                                    onClick={() => pickerRef.current?.querySelector('button')?.click()}
+                                    className="cursor-pointer text-xl font-bold select-none block"
+                                >
+                                    {selectedDate.format("YYYY年MM月")}
+                                </span>
+                            </div>
                         </LocalizationProvider>
-                        <button onClick={() => changeMonth(1)}>
-                            <Icon>keyboard_arrow_right</Icon>
-                        </button>
                     </div>
 
                     <div className="flex my-[16px] leading-[38px]">
-                        {mode ? <p className="mr-[8px]">一覧に追加したい日付をクリックしてください</p> : <Button variant="contained" className="border border-black rounded-sm p-[6px]" onClick={() => changeMode()}>
-                            必要食材一覧作成
-                        </Button>
-                        }
-                        {mode ? <Button variant="outlined" onClick={() => createList()}>確定</Button> : ''}
+                        {mode ? <p className="mr-[8px]">日付を選択</p>
+                        : <Button
+                            variant="contained"
+                            sx={{ backgroundColor: "var(--color-orange)" }}
+                            onClick={() => changeMode()}
+                        >リスト作成</Button>}
+
+                        {mode && <Button
+                            variant="outlined"
+                            sx={{
+                                    borderColor: "var(--color-orange)",
+                                    color: "var(--color-orange)"
+                                }}
+                            onClick={() => createList()}
+                        >確定</Button>}
                     </div>
 
-                    <div className="grid grid-cols-7 font-bold text-center border border-gray-300 rounded-t-md">
-                        {rotatedWeekday.map((day, index) => (
-                            <WeekArea key={index} week={day} />
-                        ))}
+                    <div className="hidden md:grid grid-cols-7 text-center border border-gray-300 rounded-t-md">
+                        {rotatedWeekday.map((day, index) => {
+                            const className = `${day === '日' ? 'text-red-500' : day === '土' ? 'text-blue-500' : '' }`;
+                            return (
+                                <WeekArea key={index} week={day} className={className} />
+                            )
+                        })}
                     </div>
+                    <div className="block md:hidden border-b border-gray-300"></div>
 
                     <div>
-                        <div className="grid grid-cols-7 border-l border-gray-300">
-                            {days.map((dayObj, index) => {
-                                const todayStr = dayjs().format('YYYY-MM-DD');
-                                const isToday = dayObj.date === todayStr;
-                                const className = `${isToday ? 'text-red-500 font-bold' : ''} ${dayObj.current ? '' : 'text-gray-400'}`;
+                        <div className="grid md:grid-cols-7 grid-cols-1 border-l border-gray-300">
+                        {days.map((dayObj, index) => {
+                            const todayStr = dayjs().format('YYYY-MM-DD');
+                            const isToday = dayObj.date === todayStr;
+                            const backGround = `${isToday ? 'bg-today' : '' }`;
+                            const className = `${dayObj.current ? '' : 'text-gray-400'}`;
 
-                                const recipeNamesForDate = fetchRecipeNames[dayObj.date] || {};
-                                const morningRecipe = recipeNamesForDate[1] || '';
-                                const afternoonRecipe = recipeNamesForDate[2] || '';
-                                const eveningRecipe = recipeNamesForDate[3] || '';
+                            // show first recipe names (join up to 3)
+                            const dayRecipes = dailyRecipes[dayObj.date] ?? {1:[],2:[],3:[]};
 
-                                return (
-                                    <DateArea
-                                        key={index}
-                                        date={dayjs(dayObj.date).date()}
-                                        backGround={listArray.includes(dayObj.date) ? 'bg-blue-200' : ''}
-                                        className={className}
-                                        onClick={
-                                            dayObj.current
-                                                ? () => {
-                                                    const selected = dayjs(dayObj.date);
-                                                    setSelectedDate(selected);
+                            // 朝 (1)
+                            const morningRecipe = (dayRecipes[1] ?? [])
+                                .map(r => r.name)
+                                .filter(Boolean)
+                                .join(' / ');
 
-                                                    if (mode) {
-                                                        changeListArray(selected.format('YYYY-MM-DD'));
-                                                    } else {
-                                                        setShowModal(true);
-                                                    }
-                                                }
-                                                : undefined
+                            // 昼 (2)
+                            const afternoonRecipe = (dayRecipes[2] ?? [])
+                                .map(r => r.name)
+                                .filter(Boolean)
+                                .join(' / ');
+
+                            // 夜 (3)
+                            const eveningRecipe = (dayRecipes[3] ?? [])
+                                .map(r => r.name)
+                                .filter(Boolean)
+                                .join(' / ');
+
+                            const weekdayLabel = dayjs(dayObj.date).format("dd");
+                            const classNameMobile = `${weekdayLabel === '日' ? 'text-red-500' : weekdayLabel === '土' ? 'text-blue-500' : 'text-gray-500' }`;
+
+                            const tagBase = "my-[4px] text-xs px-2 py-0.5 rounded-full font-medium";
+
+                            return (
+                                <DateArea
+                                    key={index}
+                                    date={dayjs(dayObj.date).date()}
+                                    backGround={listArray.includes(dayObj.date) ? 'bg-yellow-100' : backGround}
+                                    className={className}
+                                    onClick={() => {
+                                            const selected = dayjs(dayObj.date);
+                                            setSelectedDate(selected);
+                                            if (mode) {
+                                                changeListArray(selected.format('YYYY-MM-DD'));
+                                            } else {
+                                                setShowModal(true);
+                                                setTabValue(1);
+                                            }
                                         }
-                                    >
-                                        <div className="m-[4px]">
-                                            {morningRecipe && <div className="border border-black rounded-sm truncate">朝: {morningRecipe}</div>}
-                                            {afternoonRecipe && <div className="border border-black rounded-sm truncate">昼: {afternoonRecipe}</div>}
-                                            {eveningRecipe && <div className="border border-black rounded-sm truncate">夜: {eveningRecipe}</div>}
+                                    }
+                                >
+                                    {/* 📱 スマホ版：曜日＋日付 + レシピ */}
+                                    <div className="md:hidden m-[4px]">
+                                        <div className="flex items-center gap-1 mb-1">
+                                            <span className={`text-sm ${classNameMobile}`}>{weekdayLabel}</span>
+                                            <span className={`text-md ${className}`}>{dayjs(dayObj.date).date()}</span>
                                         </div>
-                                    </DateArea>
-                                );
-                            })}
+
+                                        {morningRecipe && (
+                                            <div
+                                                className={tagBase}
+                                                style={{
+                                                backgroundColor: "var(--morning-bg)",
+                                                color: "var(--morning-text)",
+                                                }}
+                                            >
+                                                朝 {morningRecipe}
+                                            </div>
+                                        )}
+
+                                        {afternoonRecipe && (
+                                            <div
+                                                className={tagBase}
+                                                style={{
+                                                backgroundColor: "var(--lunch-bg)",
+                                                color: "var(--lunch-text)",
+                                                }}
+                                            >
+                                                昼 {afternoonRecipe}
+                                            </div>
+                                        )}
+
+                                        {eveningRecipe && (
+                                            <div
+                                                className={tagBase}
+                                                style={{
+                                                backgroundColor: "var(--dinner-bg)",
+                                                color: "var(--dinner-text)",
+                                                }}
+                                            >
+                                                夜 {eveningRecipe}
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* 🖥 PC版：今までどおり */}
+                                    <div className="hidden md:block m-[4px]">
+                                        {morningRecipe && (
+                                            <div
+                                                className={tagBase}
+                                                style={{
+                                                backgroundColor: "var(--morning-bg)",
+                                                color: "var(--morning-text)",
+                                                }}
+                                            >
+                                                朝 {morningRecipe}
+                                            </div>
+                                        )}
+
+                                        {afternoonRecipe && (
+                                            <div
+                                                className={tagBase}
+                                                style={{
+                                                backgroundColor: "var(--lunch-bg)",
+                                                color: "var(--lunch-text)",
+                                                }}
+                                            >
+                                                昼 {afternoonRecipe}
+                                            </div>
+                                        )}
+
+                                        {eveningRecipe && (
+                                            <div
+                                                className={tagBase}
+                                                style={{
+                                                backgroundColor: "var(--dinner-bg)",
+                                                color: "var(--dinner-text)",
+                                                }}
+                                            >
+                                                夜 {eveningRecipe}
+                                            </div>
+                                        )}
+                                    </div>
+                                </DateArea>
+                            );
+                        })}
                         </div>
                     </div>
-                </div>
+                </>
             </Layout>
 
             <IngredientsListModal
@@ -377,64 +523,29 @@ const Calendar = () => {
                 selectedDate={dayjs(selectedDate).format('YYYY-MM-DD')}
                 tabValue={tabValue}
                 setTabValue={setTabValue}
+                dailyRecipes={dailyRecipes}
+                setDailyRecipes={setDailyRecipes}
+                categories={categories}
                 recipes={recipes}
-                selectRecipes={selectRecipes}
-                setSelectRecipes={setSelectRecipes}
-                recipeNames={recipeNames}
-                setRecipeNames={setRecipeNames}
-                recipeURLs={recipeURLs}
-                setRecipeURLs={setRecipeURLs}
-                ingredients={ingredients}
-                setIngredients={setIngredients}
-                memos={memos}
-                setMemos={setMemos}
                 show={showModal}
-                onClose={() => {
-                    const dateStr = dayjs(selectedDate).format('YYYY-MM-DD');
-                    const timeOfDays = [1, 2, 3];
-
-                    timeOfDays.map((timeOfDay) => {
-                        const exists = fetchRecipeNames[dateStr]?.[timeOfDay];
-
-                        if (!exists) {
-                            setRecipeNames((prev) => ({
-                                ...prev,
-                                [dateStr]: {
-                                    ...(prev[dateStr] || {}),
-                                    [timeOfDay]: '',
-                                },
-                            }));
-
-                            setRecipeURLs((prev) => ({
-                                ...prev,
-                                [dateStr]: {
-                                    ...(prev[dateStr] || {}),
-                                    [timeOfDay]: '',
-                                },
-                            }));
-
-                            setIngredients((prev) => ({
-                                ...prev,
-                                [dateStr]: {
-                                    ...(prev[dateStr] || {}),
-                                    [timeOfDay]: [],
-                                },
-                            }));
-
-                            setMemos((prev) => ({
-                                ...prev,
-                                [dateStr]: {
-                                    ...(prev[dateStr] || {}),
-                                    [timeOfDay]: '',
-                                },
-                            }));
-                        }
-                    });
-
-                    setShowModal(false);
-                }}
+                onClose={() => setShowModal(false)}
                 onRegister={handleRegister}
             />
+
+            <Snackbar
+                anchorOrigin={{ vertical: snackbar.vertical, horizontal: snackbar.horizontal }}
+                open={snackbar.open}
+                autoHideDuration={3000}
+                onClose={() => setSnackbar((prev) => ({ ...prev, open: false }))}
+            >
+                <Alert
+                    onClose={() => setSnackbar((prev) => ({ ...prev, open: false }))}
+                    severity={snackbar.severity}
+                    sx={{ width: '100%' }}
+                >
+                    {snackbar.message}
+                </Alert>
+            </Snackbar>
         </>
     );
 };

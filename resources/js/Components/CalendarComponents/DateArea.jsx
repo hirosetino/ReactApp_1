@@ -12,8 +12,11 @@ export default function DateArea({
     ...props
 }) {
     return (
-        <div className={`calendar-cell ${backGround}`} onClick={onClick}>
-            <p className={`pl-2 ${className}`}>{date}</p>
+        <div
+            className={`calendar-cell md:min-h-[8rem] min-h-[4rem] ${backGround}`}
+            onClick={onClick}
+        >
+            <p className={`hidden md:block pl-2 ${className}`}>{date}</p>
             {children}
         </div>
     );
