@@ -309,7 +309,7 @@ const Recipe = () => {
                         <RecipeCard
                             key={`${recipe.id}-${index}`}
                             recipe={recipe}
-                            image={recipe.image_path}
+                            image={recipe.image_url}
                             anchorEl={anchorElMap[recipe.id] || null}
                             onAnchorEl={(e) => handleMenuOpen(recipe.id, e)}
                             offAnchorEl={() => handleMenuClose(recipe.id)}

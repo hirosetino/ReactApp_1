@@ -83,6 +83,8 @@ return [
     |
     */
 
+    'image_disk' => env('FILESYSTEM_IMAGE_DISK', 'public'),
+
     'links' => [
         public_path('storage') => storage_path('app/public'),
     ],

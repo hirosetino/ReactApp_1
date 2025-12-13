@@ -223,6 +223,78 @@ const Calendar = () => {
     const handleRegister = async () => {
         try {
             const dateKey = dayjs(selectedDate).format('YYYY-MM-DD');
+            const dayMenus = dailyRecipes?.[dateKey];
+
+            // 対象日付にメニューがない
+            if (!dayMenus) {
+                setSnackbar({
+                    open: true,
+                    message: 'レシピが入力されていません',
+                    severity: 'warning',
+                    vertical: 'top',
+                    horizontal: 'center',
+                });
+                return;
+            }
+
+            // 朝・昼・夜をまとめてチェック
+            const allRecipes = [
+                ...(dayMenus[1] || []),
+                ...(dayMenus[2] || []),
+                ...(dayMenus[3] || []),
+            ].filter(r => !r?.isDeleted);
+
+            // レシピが1つもない
+            if (allRecipes.length === 0) {
+                setSnackbar({
+                    open: true,
+                    message: 'レシピを1つ以上入力してください',
+                    severity: 'warning',
+                    vertical: 'top',
+                    horizontal: 'center',
+                });
+                return;
+            }
+
+            // レシピ名 or 材料チェック
+            for (const recipe of allRecipes) {
+                if (!recipe.name || recipe.name.trim() === '') {
+                    setSnackbar({
+                        open: true,
+                        message: 'レシピ名が未入力です',
+                        severity: 'warning',
+                        vertical: 'top',
+                        horizontal: 'center',
+                    });
+                    return;
+                }
+
+                if (!recipe.ingredient || recipe.ingredient.length === 0) {
+                    setSnackbar({
+                        open: true,
+                        message: `「${recipe.name}」の材料が未入力です`,
+                        severity: 'warning',
+                        vertical: 'top',
+                        horizontal: 'center',
+                    });
+                    return;
+                }
+
+                const hasEmptyIngredient = recipe.ingredient.some(
+                    i => !i.name || i.name.trim() === ''
+                );
+
+                if (hasEmptyIngredient) {
+                    setSnackbar({
+                        open: true,
+                        message: `「${recipe.name}」の材料名が未入力です`,
+                        severity: 'warning',
+                        vertical: 'top',
+                        horizontal: 'center',
+                    });
+                    return;
+                }
+            }
 
             // 朝・昼・夜まとめて送信する構造にする
             const menusForPost = {

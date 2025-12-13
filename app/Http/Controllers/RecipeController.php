@@ -205,22 +205,26 @@ class RecipeController extends Controller
             if ($request->hasFile('image')) {
                 $image = $request->file('image');
                 $ext = $image->getClientOriginalExtension();
+
                 $directory = 'recipe_images/' . $this->userId;
-                $fileName = $recipe->id;
-                $path = $directory . '/' . $fileName . '.' . $ext;
+                $fileName = $recipe->id . '.' . $ext;
+                $path = $directory . '/' . $fileName;
 
-                if (!Storage::disk(config('filesystems.default'))->exists($directory)) {
-                    Storage::disk(config('filesystems.default'))->makeDirectory($directory);
+                $diskName = config('filesystems.image_disk');
+                $disk = Storage::disk($diskName);
+
+                if (!$disk->exists($directory)) {
+                    $disk->makeDirectory($directory);
                 }
 
-                if (Storage::disk(config('filesystems.default'))->exists($path)) {
-                    Storage::disk(config('filesystems.default'))->delete($path);
+                if ($disk->exists($path)) {
+                    $disk->delete($path);
                 }
 
-                $image->storeAs($directory, $fileName . '.' . $ext, 'public');
+                $image->storeAs($directory, $fileName, $diskName);
 
                 $recipe->update([
-                    'image_path' => 'storage/' . $path,
+                    'image_path' => $path,
                 ]);
             }
 
