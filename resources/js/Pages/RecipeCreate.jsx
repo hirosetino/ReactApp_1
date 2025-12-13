@@ -1,4 +1,5 @@
 import { useRef, useState, useEffect } from 'react';
+import { router } from "@inertiajs/react";
 import axios from 'axios';
 
 import {
@@ -8,12 +9,14 @@ import {
     Box,
     TextField,
     Link,
-    InputLabel,
+    Autocomplete,
     IconButton,
-    Button
+    Button,
+    Snackbar,
+    Alert
 } from '@mui/material';
 
-import { AddCircleOutline, RemoveCircleOutline } from '@mui/icons-material';
+import { ArrowBackIosNew, AddCircleOutline, RemoveCircleOutline } from '@mui/icons-material';
 
 import Layout from '@/Layouts/Layout';
 
@@ -21,6 +24,7 @@ const RecipeCreate = () => {
     const queryParams = new URLSearchParams(window.location.search);
     const recipeId = queryParams.get('id');
 
+    const [categories, setCategories] = useState([]);
     const [recipeData, setRecipeData] = useState({
         recipes_id: null,
         name: '',
@@ -29,8 +33,31 @@ const RecipeCreate = () => {
         image_path: null,
     });
 
+    const [inputValue, setInputValue] = useState("");
+    const [selectedCategory, setSelectedCategory] = useState(null);
+
     const [preview, setPreview] = useState(null);
     const fileInputRef = useRef();
+
+    const [snackbar, setSnackbar] = useState({
+        open: false,
+        message: '',
+        severity: 'success',
+        vertical: 'top',
+        horizontal: 'center',
+    });
+
+    useEffect(() => {
+        axios.get('/get_categories')
+            .then((res) => {
+                const obj = res.data.categories ?? res.data;
+
+                setCategories(obj);
+            })
+            .catch((err) => {
+                console.error('カテゴリ取得エラー:', err);
+            });
+    }, []);
 
     useEffect(() => {
         if (recipeId) {
@@ -47,6 +74,14 @@ const RecipeCreate = () => {
 
                     if (r.image_path) {
                         setPreview(`/${r.image_path}`);
+                    }
+
+                    if (r.category) {
+                        setSelectedCategory({
+                            id: r.category.id,
+                            name: r.category.name,
+                        });
+                        setInputValue(r.category.name);
                     }
                 })
                 .catch((err) => {
@@ -87,8 +122,10 @@ const RecipeCreate = () => {
     const handleSubmit = async () => {
         try {
             const formData = new FormData();
+            const category = selectedCategory?.id === null ? selectedCategory?.name : selectedCategory?.id;
             formData.append('recipes_id', recipeData.recipes_id || '');
             formData.append('name', recipeData.name || '');
+            formData.append('category', category || null);
             formData.append('url', recipeData.url || '');
             formData.append('image', recipeData.image_path || '');
 
@@ -104,24 +141,37 @@ const RecipeCreate = () => {
                 },
             });
 
-            alert('登録に成功しました');
+            setSnackbar({
+                open: true,
+                message: '登録に成功しました',
+                severity: 'success',
+                vertical: 'top',
+                horizontal: 'center'
+            });
         } catch (error) {
             console.error('登録エラー:', error);
-            alert('登録に失敗しました');
+            setSnackbar({
+                open: true,
+                message: '登録に失敗しました',
+                severity: 'error',
+                vertical: 'top',
+                horizontal: 'center'
+            });
         }
     };
 
     return (
         <>
             <Layout>
-                <Paper elevation={3} sx={{ maxWidth: 800, margin: "auto", mt: 2, padding: 2 }}>
+                <IconButton onClick={ () => router.visit("/recipe")}>
+                    <ArrowBackIosNew/>
+                </IconButton>
+                <Paper elevation={3} sx={{ maxWidth: 800, margin: "auto", mt: 1, padding: 2 }}>
                     <Typography variant="h6">
                         {recipeId ? 'レシピ編集' : 'レシピ登録'}
                     </Typography>
 
-                    <Box mb={2}>
-                        <InputLabel>画像</InputLabel>
-
+                    <Box my={2}>
                         <input
                             type="file"
                             accept="image/*"
@@ -131,7 +181,6 @@ const RecipeCreate = () => {
                                 const file = e.target.files[0];
                                 if (file) {
                                     setRecipeData(prev => ({ ...prev, image_path: file }));
-
                                     const reader = new FileReader();
                                     reader.onloadend = () => {
                                         setPreview(reader.result);
@@ -177,6 +226,36 @@ const RecipeCreate = () => {
                         onChange={(e) => setRecipeData(prev => ({ ...prev, name: e.target.value }))}
                     />
 
+                    <Autocomplete
+                        freeSolo
+                        options={categories}
+                        value={selectedCategory}
+                        inputValue={inputValue}
+                        getOptionLabel={(option) => option?.name ?? ""}
+                        onInputChange={(event, newValue) => {
+                            setInputValue(newValue);
+                        }}
+                        onChange={(event, newValue) => {
+                            if (typeof newValue === "string") {
+                                setSelectedCategory({ id: null, name: newValue });
+                                setInputValue(newValue);
+                            } else if (newValue && newValue.name) {
+                                setSelectedCategory({ id: newValue.id, name: newValue.name });
+                                setInputValue(newValue.name);
+                            } else {
+                                setSelectedCategory(null);
+                                setInputValue("");
+                            }
+                        }}
+                        renderInput={(params) => (
+                            <TextField
+                                {...params}
+                                label="カテゴリ"
+                                placeholder="カテゴリを入力または選択"
+                            />
+                        )}
+                    />
+
                     <TextField
                         fullWidth
                         label="URL"
@@ -187,8 +266,8 @@ const RecipeCreate = () => {
                     />
                     {recipeData.url && (
                         <Link href={recipeData.url} target="_blank" rel="noopener noreferrer">
-                        {recipeData.url}
-                    </Link>
+                            {recipeData.url}
+                        </Link>
                     )}
 
                     <Typography variant="h6" sx={{ mt: 2 }}>
@@ -196,8 +275,8 @@ const RecipeCreate = () => {
                     </Typography>
 
                     {recipeData.ingredients?.map((ingredient, index) => (
-                        <Grid container mb={1} spacing={2} key={index} alignItems="center">
-                            <Grid item xs={5}>
+                        <Grid container wrap="nowrap" mb={1} spacing={2} key={index} alignItems="center">
+                            <Grid item xs={5} sm={5}>
                                 <TextField
                                     fullWidth
                                     label="材料名"
@@ -206,7 +285,8 @@ const RecipeCreate = () => {
                                     onChange={(e) => handleIngredientChange(index, 'name', e.target.value)}
                                 />
                             </Grid>
-                            <Grid item xs={5}>
+
+                            <Grid item xs={5} sm={5}>
                                 <TextField
                                     fullWidth
                                     label="量"
@@ -215,29 +295,54 @@ const RecipeCreate = () => {
                                     onChange={(e) => handleIngredientChange(index, 'amount', e.target.value)}
                                 />
                             </Grid>
-                            <Grid item xs={2}>
-                                <IconButton
-                                    onClick={() => handleRemoveIngredient(index)}
-                                >
+
+                            <Grid item xs={2} sm={2} container justifyContent={{ xs: "flex-end", sm: "center" }}>
+                                <IconButton color="error" onClick={() => handleRemoveIngredient(index)}>
                                     <RemoveCircleOutline />
                                 </IconButton>
                             </Grid>
+
                         </Grid>
                     ))}
 
                     <Box mt={2}>
-                        <Button startIcon={<AddCircleOutline />} onClick={handleAddIngredient}>
+                        <Button
+                            sx={{
+                                borderColor: "var(--color-orange)",
+                                color: "var(--color-orange)",
+                            }}
+                            startIcon={<AddCircleOutline />}
+                            onClick={handleAddIngredient}
+                        >
                             材料を追加
                         </Button>
                     </Box>
 
                     <Box sx={{ mt: 2, display: 'flex', justifyContent: 'flex-end' }}>
-                        <Button variant="contained" color="primary" onClick={handleSubmit}>
+                        <Button
+                            variant="contained"
+                            sx={{ backgroundColor: "var(--color-orange)" }}
+                            onClick={handleSubmit}>
                             {recipeId ? '更新' : '登録'}
                         </Button>
                     </Box>
                 </Paper>
             </Layout>
+
+            <Snackbar
+                anchorOrigin={{ vertical: snackbar.vertical, horizontal: snackbar.horizontal }}
+                open={snackbar.open}
+                autoHideDuration={3000}
+                onClose={() => setSnackbar((prev) => ({ ...prev, open: false }))}
+            >
+                <Alert
+                    onClose={() => setSnackbar((prev) => ({ ...prev, open: false }))}
+                    severity={snackbar.severity}
+                    sx={{ width: '100%' }}
+                >
+                    {snackbar.message}
+                </Alert>
+            </Snackbar>
         </>
     );
 };

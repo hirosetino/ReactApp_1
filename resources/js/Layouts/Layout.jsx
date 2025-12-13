@@ -19,15 +19,18 @@ import MenuIcon from "@mui/icons-material/Menu";
 import LogoutIcon from "@mui/icons-material/Logout";
 import { useTheme } from "@mui/material/styles";
 
-const drawerWidth = 240;
+const drawerWidth = 160;
 
 const menuItems = [
-    { label: "ホーム", route: "/" },
-    { label: "レシピ一覧", route: "/recipe" },
     { label: "カレンダー", route: "/calendar" },
+    { label: "レシピ一覧", route: "/recipe" },
 ];
 
-export default function Layout({ children }) {
+export default function Layout({
+    isSearch = false,
+    rightContent = false,
+    children,
+}) {
     const [mobileOpen, setMobileOpen] = useState(false);
     const theme = useTheme();
     const isDesktop = useMediaQuery(theme.breakpoints.up("md"));
@@ -39,9 +42,9 @@ export default function Layout({ children }) {
     const logout = () => router.post("/logout");
 
     const drawerContent = (
-        <div>
+        <div className="mt-16">
             <Toolbar>
-                <Typography variant="h6">メニュー</Typography>
+                <Typography>メニュー</Typography>
             </Toolbar>
             <Divider />
             <List>
@@ -73,14 +76,28 @@ export default function Layout({ children }) {
                     color="inherit"
                     edge="start"
                     onClick={toggleDrawer}
-                    sx={{ mr: 2 }}
+                    sx={{ mr: 1 }}
                     >
                     <MenuIcon />
                     </IconButton>
                 )}
 
-                <Typography variant="h6" sx={{ flexGrow: 1 }}>
-                    レシピ管理アプリ
+                <Typography
+                    variant="h6"
+                    sx={{
+                        display: 'flex',
+                        flexGrow: 1,
+                        alignItems: 'center',
+                        gap: 1,
+                        fontWeight: 'bold',
+                    }}
+                >
+                    <img
+                        src="/images/logo_circle.png"
+                        alt=""
+                        style={{ width: 32, height: 32 }}
+                    />
+                    cooking pad
                 </Typography>
 
                 <IconButton color="inherit" onClick={logout}>
@@ -125,14 +142,20 @@ export default function Layout({ children }) {
             <Box
                 component="main"
                 sx={{
-                flexGrow: 1,
-                p: 3,
-                width: "100%",
-                mt: "64px",
+                    flexGrow: 1,
+                    width: "100%",
+                    mt: "64px",
+                    p: 2,
                 }}
             >
                 {children}
             </Box>
+
+            {isDesktop && isSearch && (
+                <Box>
+                    {rightContent}
+                </Box>
+            )}
         </Box>
     );
 }
