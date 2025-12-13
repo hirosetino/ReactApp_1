@@ -1,9 +1,12 @@
 .calendar-cell {
-  height: 8rem;
   border-right: 1px solid #d1d5db;
   border-bottom: 1px solid #d1d5db;
   cursor: pointer;
   transition: all 0.2s ease-in-out;
+}
+
+.bg-today {
+  background-color: rgb(255 153 51 / 0.1) !important;
 }
 
 .calendar-cell:hover {
@@ -12,8 +15,8 @@
   box-shadow: 0 0 4px gray;
 }
 
-.calendar-cell.bg-blue-200:hover {
-  background-color: rgb(191 219 254 / var(--tw-bg-opacity, 1));
+.calendar-cell.bg-yellow-100:hover {
+  background-color: rgb(254 249 194 / var(--tw-bg-opacity, 1));
   transform: scale(1.01);
   box-shadow: 0 0 4px gray;
 }

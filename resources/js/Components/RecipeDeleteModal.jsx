@@ -32,18 +32,14 @@ const RecipeDeleteModal = ({
             </DialogContent>
 
             <DialogActions>
-                <Button
-                    onClick={onClose}
-                    variant="contained"
-                    color="error"
+                <Button variant="outlined" color="error" onClick={onClose}
                 >
                     閉じる
                 </Button>
-
                 <Button
-                    onClick={onDelete}
                     variant="contained"
-                    color="primary"
+                    color="error"
+                    onClick={onDelete}
                 >
                     削除
                 </Button>
