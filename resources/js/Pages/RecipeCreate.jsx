@@ -47,8 +47,6 @@ const RecipeCreate = () => {
         horizontal: 'center',
     });
 
-    const [errorMessage, setErrorMessage] = useState('');
-
     useEffect(() => {
         axios.get('/get_categories')
             .then((res) => {
@@ -180,7 +178,6 @@ const RecipeCreate = () => {
                 horizontal: 'center'
             });
         } catch (error) {
-            setErrorMessage(error);
             console.error('登録エラー:', error);
             setSnackbar({
                 open: true,
@@ -199,12 +196,6 @@ const RecipeCreate = () => {
                     <ArrowBackIosNew/>
                 </IconButton>
                 <Paper elevation={3} sx={{ maxWidth: 800, margin: "auto", mt: 1, padding: 2 }}>
-                    {errorMessage && (
-                        <Typography color="error" sx={{ mb: 2 }}>
-                            {errorMessage}
-                        </Typography>
-                    )}
-
                     <Typography variant="h6">
                         {recipeId ? 'レシピ編集' : 'レシピ登録'}
                     </Typography>

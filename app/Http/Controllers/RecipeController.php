@@ -207,14 +207,14 @@ class RecipeController extends Controller
             }
 
             if ($request->hasFile('image')) {
-                $image = $this->convertToJpeg(
+                $path = $this->convertToWebp(
                     $request->file('image'),
                     $recipe->id,
                     $this->userId
                 );
 
                 $recipe->update([
-                    'image_path' => $image,
+                    'image_path' => $path,
                 ]);
             }
 
@@ -466,28 +466,33 @@ class RecipeController extends Controller
         }
     }
 
-    private function convertToJpeg(UploadedFile $file): UploadedFile
+    private function convertToWebp($file, int $recipeId, int $userId): string
     {
         $imagick = new Imagick();
         $imagick->readImage($file->getRealPath());
-        $imagick = $imagick->mergeImageLayers(Imagick::LAYERMETHOD_FLATTEN);
 
+        // HEIC / PNG / GIF など多フレーム対策
+        if ($imagick->getNumberImages() > 1) {
+            $imagick = $imagick->mergeImageLayers(Imagick::LAYERMETHOD_FLATTEN);
+        }
+
+        $imagick->setImageFormat('webp');
+        $imagick->setOption('webp:method', '6'); // 圧縮最適化
+        $imagick->setImageCompressionQuality(80);
+
+        // iPhone EXIF 回転対策（必須）
         $imagick->autoOrient();
-        $imagick->setImageFormat('jpeg');
-        $imagick->setImageCompressionQuality(85);
 
-        $tmpPath = sys_get_temp_dir() . '/' . Str::uuid() . '.jpg';
-        $imagick->writeImage($tmpPath);
+        $directory = "recipe_images/{$userId}";
+        $fileName  = "{$recipeId}.webp";
+        $path      = "{$directory}/{$fileName}";
+
+        Storage::disk(config('filesystems.image_disk'))
+            ->put($path, $imagick->getImageBlob(), 'public');
 
         $imagick->clear();
         $imagick->destroy();
 
-        return new UploadedFile(
-            $tmpPath,
-            basename($tmpPath),
-            'image/jpeg',
-            null,
-            true
-        );
+        return $path;
     }
 }
