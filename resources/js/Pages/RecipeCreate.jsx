@@ -47,6 +47,8 @@ const RecipeCreate = () => {
         horizontal: 'center',
     });
 
+    const [errorMessage, setErrorMessage] = useState('');
+
     useEffect(() => {
         axios.get('/get_categories')
             .then((res) => {
@@ -153,7 +155,7 @@ const RecipeCreate = () => {
 
         try {
             const formData = new FormData();
-            const category = selectedCategory?.id === null ? selectedCategory?.name : selectedCategory?.id;
+            const category = selectedCategory?.id == null ? inputValue : selectedCategory?.id;
             formData.append('recipes_id', recipeData.recipes_id || '');
             formData.append('name', recipeData.name || '');
             formData.append('category', category || null);
@@ -178,10 +180,11 @@ const RecipeCreate = () => {
                 horizontal: 'center'
             });
         } catch (error) {
+            setErrorMessage(error);
             console.error('登録エラー:', error);
             setSnackbar({
                 open: true,
-                message: error,
+                message: '登録に失敗しました',
                 severity: 'error',
                 vertical: 'top',
                 horizontal: 'center'
@@ -196,6 +199,12 @@ const RecipeCreate = () => {
                     <ArrowBackIosNew/>
                 </IconButton>
                 <Paper elevation={3} sx={{ maxWidth: 800, margin: "auto", mt: 1, padding: 2 }}>
+                    {errorMessage && (
+                        <Typography color="error" sx={{ mb: 2 }}>
+                            {errorMessage}
+                        </Typography>
+                    )}
+
                     <Typography variant="h6">
                         {recipeId ? 'レシピ編集' : 'レシピ登録'}
                     </Typography>
