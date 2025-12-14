@@ -498,6 +498,10 @@ Log::info(7);
 
             $path = "recipe_images/{$userId}/{$recipeId}.webp";
 Log::info(11);
+Log::info('image_disk', [
+    config('filesystems.image_disk'),
+    config("filesystems.disks." . config('filesystems.image_disk'))
+]);
             $blob = $imagick->getImageBlob();
             $tmpPath = storage_path("app/tmp_{$recipeId}.webp");
             file_put_contents($tmpPath, $blob);
