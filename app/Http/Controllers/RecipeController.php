@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
+use Illuminate\Http\UploadedFile;
 
 use Imagick;
 
@@ -206,14 +207,14 @@ class RecipeController extends Controller
             }
 
             if ($request->hasFile('image')) {
-                $path = $this->convertToJpeg(
+                $image = $this->convertToJpeg(
                     $request->file('image'),
                     $recipe->id,
                     $this->userId
                 );
 
                 $recipe->update([
-                    'image_path' => $path,
+                    'image_path' => $image,
                 ]);
             }
 
@@ -465,33 +466,28 @@ class RecipeController extends Controller
         }
     }
 
-    private function convertToJpeg($file, int $recipeId, int $userId): string
+    private function convertToJpeg(UploadedFile $file): UploadedFile
     {
         $imagick = new Imagick();
         $imagick->readImage($file->getRealPath());
+        $imagick = $imagick->mergeImageLayers(Imagick::LAYERMETHOD_FLATTEN);
 
-        // HEIC / PNG / GIF など多フレーム対策
-        if ($imagick->getNumberImages() > 1) {
-            $imagick = $imagick->mergeImageLayers(Imagick::LAYERMETHOD_FLATTEN);
-        }
-
+        $imagick->autoOrient();
         $imagick->setImageFormat('jpeg');
-        $imagick->setImageCompression(Imagick::COMPRESSION_JPEG);
         $imagick->setImageCompressionQuality(85);
 
-        // iPhone EXIF 回転対策（必須）
-        $imagick->autoOrient();
-
-        $directory = "recipe_images/{$userId}";
-        $fileName  = "{$recipeId}.jpg";
-        $path      = "{$directory}/{$fileName}";
-
-        Storage::disk(config('filesystems.image_disk'))
-            ->put($path, $imagick->getImageBlob(), 'public');
+        $tmpPath = sys_get_temp_dir() . '/' . Str::uuid() . '.jpg';
+        $imagick->writeImage($tmpPath);
 
         $imagick->clear();
         $imagick->destroy();
 
-        return $path;
+        return new UploadedFile(
+            $tmpPath,
+            basename($tmpPath),
+            'image/jpeg',
+            null,
+            true
+        );
     }
 }
