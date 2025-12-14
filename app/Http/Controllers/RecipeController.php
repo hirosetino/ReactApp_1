@@ -470,31 +470,39 @@ class RecipeController extends Controller
     private function convertToWebp($file, int $recipeId, int $userId): string
     {
         try {
+            Log::info(0);
             $imagick = new Imagick();
-
+Log::info(1);
             $imagick->readImage($file->getRealPath());
-
+Log::info(2);
             if ($imagick->getNumberImages() > 1) {
                 $imagick = $imagick->mergeImageLayers(
                     Imagick::LAYERMETHOD_FLATTEN
                 );
             }
-
+Log::info(3);
             $imagick->autoOrient();
+            Log::info(4);
             $imagick->setImageColorspace(Imagick::COLORSPACE_SRGB);
+            Log::info(5);
             $imagick->setImageAlphaChannel(Imagick::ALPHACHANNEL_ACTIVATE);
+            Log::info(6);
             $imagick->stripImage();
-
+Log::info(7);
             $imagick->setImageFormat('webp');
+            Log::info(8);
             $imagick->setOption('webp:method', '6');
+            Log::info(9);
             $imagick->setImageCompressionQuality(80);
+            Log::info(10);
 
             $path = "recipe_images/{$userId}/{$recipeId}.webp";
-
+Log::info(11);
             Storage::disk(config('filesystems.image_disk'))
                 ->put($path, $imagick->getImageBlob(), 'public');
-
+Log::info(12);
             $imagick->clear();
+            Log::info(13);
             $imagick->destroy();
             Log::info([1, $path]);
             return $path;
