@@ -7,8 +7,6 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Str;
-use Illuminate\Http\UploadedFile;
 
 use Imagick;
 
@@ -206,13 +204,14 @@ class RecipeController extends Controller
                 }
             }
 
+            Log::info(['リクエスト', $request->hasFile('image')]);
             if ($request->hasFile('image')) {
                 $path = $this->convertToWebp(
                     $request->file('image'),
                     $recipe->id,
                     $this->userId
                 );
-
+                Log::info(['登録', $path]);
                 $recipe->update([
                     'image_path' => $path,
                 ]);
@@ -468,31 +467,53 @@ class RecipeController extends Controller
 
     private function convertToWebp($file, int $recipeId, int $userId): string
     {
-        $imagick = new Imagick();
-        $imagick->readImage($file->getRealPath());
+        try {
+            $imagick = new Imagick();
 
-        // HEIC / PNG / GIF など多フレーム対策
-        if ($imagick->getNumberImages() > 1) {
-            $imagick = $imagick->mergeImageLayers(Imagick::LAYERMETHOD_FLATTEN);
+            // Safari / iOS 安定化
+            $imagick->readImageBlob(
+                file_get_contents($file->getRealPath())
+            );
+
+            // HEIC / GIF 多フレーム対策
+            if ($imagick->getNumberImages() > 1) {
+                $imagick = $imagick->mergeImageLayers(
+                    Imagick::LAYERMETHOD_FLATTEN
+                );
+            }
+
+            // 色・向き・透明度（重要）
+            $imagick->autoOrient();
+            $imagick->setImageColorspace(Imagick::COLORSPACE_SRGB);
+            $imagick->setImageAlphaChannel(Imagick::ALPHACHANNEL_ACTIVATE);
+
+            // メタデータ削除（軽量化）
+            $imagick->stripImage();
+
+            // WebP 変換
+            $imagick->setImageFormat('webp');
+            $imagick->setOption('webp:method', '6');
+            $imagick->setImageCompressionQuality(80);
+
+            $directory = "recipe_images/{$userId}";
+            $fileName  = "{$recipeId}.webp";
+            $path      = "{$directory}/{$fileName}";
+            Log::info(['パス作成', $path]);
+
+            Storage::disk(config('filesystems.image_disk'))
+                ->put($path, $imagick->getImageBlob(), 'public');
+
+            $imagick->clear();
+            $imagick->destroy();
+
+            return $path;
+
+        } catch (\Throwable $e) {
+            \Log::error('WebP変換エラー', [
+                'message' => $e->getMessage(),
+                'file' => $file->getClientOriginalName(),
+            ]);
+            throw $e;
         }
-
-        $imagick->setImageFormat('webp');
-        $imagick->setOption('webp:method', '6'); // 圧縮最適化
-        $imagick->setImageCompressionQuality(80);
-
-        // iPhone EXIF 回転対策（必須）
-        $imagick->autoOrient();
-
-        $directory = "recipe_images/{$userId}";
-        $fileName  = "{$recipeId}.webp";
-        $path      = "{$directory}/{$fileName}";
-
-        Storage::disk(config('filesystems.image_disk'))
-            ->put($path, $imagick->getImageBlob(), 'public');
-
-        $imagick->clear();
-        $imagick->destroy();
-
-        return $path;
     }
 }
