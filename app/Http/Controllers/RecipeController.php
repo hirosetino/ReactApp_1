@@ -8,6 +8,8 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Log;
 
+use Imagick;
+
 use App\Models\Recipe;
 use App\Models\Ingredient;
 use App\Models\Category;
@@ -127,10 +129,12 @@ class RecipeController extends Controller
             $category_id = null;
             if ($data['category']) {
                 if (!is_numeric($data['category'])) {
-                    $category = Category::create([
-                        'name' => $data['category']
-                    ]);
-                    $category_id = $category->id;
+                    if ($data['category'] !== 'null') {
+                        $category = Category::create([
+                            'name' => $data['category']
+                        ]);
+                        $category_id = $category->id;
+                    }
                 } else {
                     $category_id = $data['category'];
                 }
@@ -202,16 +206,13 @@ class RecipeController extends Controller
                 }
             }
 
-            if ($request->hasFile('image') && $request->file('image')->isValid()) {
-                $image = $request->file('image');
-                $ext = $image->getClientOriginalExtension();
-
-                $directory = 'recipe_images/' . $this->userId;
-                $fileName = $recipe->id . '.' . $ext;
-                $path = $directory . '/' . $fileName;
-
-                Storage::disk(config('filesystems.image_disk'))
-                    ->putFileAs($directory, $image, $fileName, 'public');
+            if ($request->hasFile('image')) {
+                $file = $request->file('image');
+                $path = $this->convertToWebp(
+                    $file,
+                    $recipe->id,
+                    $this->userId
+                );
 
                 $recipe->update([
                     'image_path' => $path,
@@ -463,6 +464,57 @@ class RecipeController extends Controller
             Log::error('menu_post error: ' . $e->getMessage());
 
             return response()->json(['error' => $e->getMessage()], 500);
+        }
+    }
+
+    private function convertToWebp($file, int $recipeId, int $userId): string
+    {
+        try {
+            $imagick = new Imagick();
+
+            $imagick->readImage($file->getRealPath());
+
+            // 多フレーム（HEIC / GIF）
+            if ($imagick->getNumberImages() > 1) {
+                $imagick = $imagick->mergeImageLayers(
+                    Imagick::LAYERMETHOD_FLATTEN
+                );
+            }
+
+            // 向き補正（iPhone必須）
+            $imagick->autoOrient();
+
+            // sRGB 固定
+            $imagick->setImageColorspace(Imagick::COLORSPACE_SRGB);
+
+            if (!$imagick->getImageAlphaChannel()) {
+                // 🔥 透明を潰す（重要）
+                $imagick->setImageBackgroundColor('white');
+                $imagick = $imagick->mergeImageLayers(Imagick::LAYERMETHOD_FLATTEN);
+            }
+
+            // メタデータ削除
+            $imagick->stripImage();
+
+            // WebP
+            $imagick->setImageFormat('webp');
+            $imagick->setOption('webp:method', '6');
+            $imagick->setImageCompressionQuality(80);
+
+            $path = "recipe_images/{$userId}/{$recipeId}.webp";
+            Storage::disk(config('filesystems.image_disk'))
+                ->put($path, $imagick->getImageBlob(), 'public');
+
+            $imagick->clear();
+            $imagick->destroy();
+
+            return $path;
+        } catch (\Throwable $e) {
+            Log::error('WebP変換エラー', [
+                'message' => $e->getMessage(),
+                'file' => $file->getClientOriginalName(),
+            ]);
+            throw $e;
         }
     }
 }

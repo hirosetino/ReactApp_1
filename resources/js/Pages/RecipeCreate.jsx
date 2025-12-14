@@ -12,6 +12,8 @@ import {
     Autocomplete,
     IconButton,
     Button,
+    Backdrop,
+    CircularProgress,
     Snackbar,
     Alert
 } from '@mui/material';
@@ -39,6 +41,8 @@ const RecipeCreate = () => {
     const [preview, setPreview] = useState(null);
     const fileInputRef = useRef();
 
+    const [isSubmitting, setIsSubmitting] = useState(false);
+
     const [snackbar, setSnackbar] = useState({
         open: false,
         message: '',
@@ -46,8 +50,6 @@ const RecipeCreate = () => {
         vertical: 'top',
         horizontal: 'center',
     });
-
-    const [errorMessage, setErrorMessage] = useState('');
 
     useEffect(() => {
         axios.get('/get_categories')
@@ -102,37 +104,6 @@ const RecipeCreate = () => {
         }
     }, [recipeData.image_path]);
 
-    const resizeImage = (file, maxWidth = 1024, maxHeight = 1024) =>
-        new Promise((resolve) => {
-            const img = new Image();
-            const reader = new FileReader();
-            reader.onload = (e) => {
-            img.src = e.target.result;
-            img.onload = () => {
-                const canvas = document.createElement('canvas');
-                let w = img.width;
-                let h = img.height;
-                if (w > h) {
-                if (w > maxWidth) {
-                    h = (h * maxWidth) / w;
-                    w = maxWidth;
-                }
-                } else {
-                if (h > maxHeight) {
-                    w = (w * maxHeight) / h;
-                    h = maxHeight;
-                }
-                }
-                canvas.width = w;
-                canvas.height = h;
-                const ctx = canvas.getContext('2d');
-                ctx.drawImage(img, 0, 0, w, h);
-                canvas.toBlob(resolve, file.type);
-            };
-            };
-            reader.readAsDataURL(file);
-        });
-
     const handleIngredientChange = (index, field, value) => {
         const updated = [...recipeData.ingredients];
         updated[index][field] = value;
@@ -185,23 +156,28 @@ const RecipeCreate = () => {
         }
 
         try {
+            setIsSubmitting(true);
+
             const formData = new FormData();
             const category = selectedCategory?.id == null ? inputValue : selectedCategory?.id;
+
             formData.append('recipes_id', recipeData.recipes_id || '');
             formData.append('name', recipeData.name || '');
             formData.append('category', category || null);
             formData.append('url', recipeData.url || '');
+
             if (recipeData.image_path instanceof File) {
                 formData.append('image', recipeData.image_path);
             }
 
             recipeData.ingredients.forEach((ing, index) => {
-                formData.append(`ingredients[${index}][id]`, ing.id || '');
                 formData.append(`ingredients[${index}][name]`, ing.name);
                 formData.append(`ingredients[${index}][amount]`, ing.amount);
             });
 
-            await axios.post('/recipe/create_post', formData);
+            await axios.post('/recipe/create_post', formData, {
+                timeout: 60000,
+            });
 
             setSnackbar({
                 open: true,
@@ -210,9 +186,9 @@ const RecipeCreate = () => {
                 vertical: 'top',
                 horizontal: 'center'
             });
-        } catch (error) {
-            setErrorMessage(error);
-            console.error('登録エラー:', error);
+        } catch (err) {
+            console.error('登録エラー', err);
+
             setSnackbar({
                 open: true,
                 message: '登録に失敗しました',
@@ -220,6 +196,8 @@ const RecipeCreate = () => {
                 vertical: 'top',
                 horizontal: 'center'
             });
+        } finally {
+            setIsSubmitting(false);
         }
     };
 
@@ -230,12 +208,6 @@ const RecipeCreate = () => {
                     <ArrowBackIosNew/>
                 </IconButton>
                 <Paper elevation={3} sx={{ maxWidth: 800, margin: "auto", mt: 1, padding: 2 }}>
-                    {errorMessage && (
-                        <Typography color="error" sx={{ mb: 2 }}>
-                            {errorMessage}
-                        </Typography>
-                    )}
-
                     <Typography variant="h6">
                         {recipeId ? 'レシピ編集' : 'レシピ登録'}
                     </Typography>
@@ -272,7 +244,9 @@ const RecipeCreate = () => {
                                 const file = e.target.files[0];
                                 if (file) {
                                     setRecipeData(prev => ({ ...prev, image_path: file }));
-                                    resizeImage(file);
+                                    const reader = new FileReader();
+                                    reader.onloadend = () => setPreview(reader.result);
+                                    reader.readAsDataURL(file);
                                 }
                             }}
                         />
@@ -393,7 +367,9 @@ const RecipeCreate = () => {
                         <Button
                             variant="contained"
                             sx={{ backgroundColor: "var(--color-orange)" }}
-                            onClick={handleSubmit}>
+                            onClick={handleSubmit}
+                            disabled={isSubmitting}
+                        >
                             {recipeId ? '更新' : '登録'}
                         </Button>
                     </Box>
@@ -414,6 +390,16 @@ const RecipeCreate = () => {
                     {snackbar.message}
                 </Alert>
             </Snackbar>
+
+            <Backdrop
+                sx={{
+                    color: '#fff',
+                    zIndex: (theme) => theme.zIndex.drawer + 1,
+                }}
+                open={isSubmitting}
+            >
+                <CircularProgress color="inherit" />
+            </Backdrop>
         </>
     );
 };

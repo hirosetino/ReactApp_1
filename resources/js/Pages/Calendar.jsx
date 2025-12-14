@@ -6,7 +6,7 @@ import 'dayjs/locale/ja';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
-import { Icon, Button, IconButton, Snackbar, Alert } from '@mui/material';
+import { Icon, Button, IconButton, Backdrop, CircularProgress, Snackbar, Alert } from '@mui/material';
 
 import Layout from '@/Layouts/Layout';
 import WeekArea from '@/Components/CalendarComponents/WeekArea';
@@ -45,6 +45,8 @@ const Calendar = () => {
     const [refreshMenus, setRefreshMenus] = useState(false);
 
     const pickerRef = useRef(null);
+
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
     const [snackbar, setSnackbar] = useState({
         open: false,
@@ -222,6 +224,8 @@ const Calendar = () => {
     // handle register (POST multiple recipes)
     const handleRegister = async () => {
         try {
+            setIsSubmitting(true);
+
             const dateKey = dayjs(selectedDate).format('YYYY-MM-DD');
             const dayMenus = dailyRecipes?.[dateKey];
 
@@ -364,6 +368,8 @@ const Calendar = () => {
                 vertical: 'top',
                 horizontal: 'center'
             });
+        } finally {
+            setIsSubmitting(false);
         }
     };
 
@@ -618,6 +624,16 @@ const Calendar = () => {
                     {snackbar.message}
                 </Alert>
             </Snackbar>
+
+            <Backdrop
+                sx={{
+                    color: '#fff',
+                    zIndex: 9999,
+                }}
+                open={isSubmitting}
+            >
+                <CircularProgress color="inherit" />
+            </Backdrop>
         </>
     );
 };
