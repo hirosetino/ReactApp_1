@@ -102,30 +102,6 @@ const RecipeCreate = () => {
         }
     }, [recipeData.image_path]);
 
-    const resizeImage = (file, maxWidth = 1024, maxHeight = 1024) =>
-        new Promise((resolve) => {
-            const img = new Image();
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                img.src = e.target.result;
-            };
-            img.onload = () => {
-                const canvas = document.createElement('canvas');
-                let w = img.width;
-                let h = img.height;
-                if (w > h && w > maxWidth) { h = (h * maxWidth) / w; w = maxWidth; }
-                if (h >= w && h > maxHeight) { w = (w * maxHeight) / h; h = maxHeight; }
-                canvas.width = w;
-                canvas.height = h;
-                const ctx = canvas.getContext('2d');
-                ctx.drawImage(img, 0, 0, w, h);
-                canvas.toBlob((blob) => {
-                    resolve(new File([blob], file.name, { type: file.type }));
-                }, file.type, 0.8);
-            };
-            reader.readAsDataURL(file);
-        });
-
     const handleIngredientChange = (index, field, value) => {
         const updated = [...recipeData.ingredients];
         updated[index][field] = value;
@@ -185,8 +161,7 @@ const RecipeCreate = () => {
             formData.append('category', category || null);
             formData.append('url', recipeData.url || '');
             if (recipeData.image_path instanceof File) {
-                const resizedFile = await resizeImage(recipeData.image_path, 1024, 1024);
-                formData.append('image', resizedFile);
+                formData.append('image', recipeData.image_path);
             }
 
             recipeData.ingredients.forEach((ing, index) => {

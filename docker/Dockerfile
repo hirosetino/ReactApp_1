@@ -1,5 +1,5 @@
 # ===============================
-# 1. Build Vite (React + Inertia)
+# 1. Build Frontend (React + Vite)
 # ===============================
 FROM node:18 AS node-build
 
@@ -17,36 +17,40 @@ RUN npm run build
 # ===============================
 FROM php:8.2-fpm
 
-# 必要パッケージと拡張
+# OSライブラリ + ImageMagick + HEIC
 RUN apt-get update && apt-get install -y \
     nginx \
     git \
     unzip \
     libzip-dev \
     libpng-dev \
+    libjpeg-dev \
+    libwebp-dev \
     libonig-dev \
     libxml2-dev \
-    zip \
+    libheif-dev \
+    imagemagick \
     && docker-php-ext-install pdo_mysql zip
 
-# Composer コピー
+# 👇 これが必須（Imagick PHP拡張）
+RUN pecl install imagick \
+    && docker-php-ext-enable imagick
+
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
 WORKDIR /var/www/html
 
-# Laravel ソースをコピー
+# Laravel
 COPY . .
 
-# Vite のビルド結果を public にコピー
-COPY --from=node-build /app/public ./public
+# Vite build
+COPY --from=node-build /app/public/build ./public/build
 
-# Laravel 最適化
 RUN composer install --no-dev --optimize-autoloader
-RUN php artisan key:generate --force
+
+RUN chmod -R 777 storage bootstrap/cache
 RUN php artisan storage:link
 
-# nginx 設定をコピー
 COPY ./docker/nginx.conf /etc/nginx/nginx.conf
 
-# 実行コマンド（php-fpm + nginx）
 CMD service nginx start && php-fpm

@@ -7,6 +7,9 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
+
+use Imagick;
 
 use App\Models\Recipe;
 use App\Models\Ingredient;
@@ -202,16 +205,12 @@ class RecipeController extends Controller
                 }
             }
 
-            if ($request->hasFile('image') && $request->file('image')->isValid()) {
-                $image = $request->file('image');
-                $ext = $image->getClientOriginalExtension();
-
-                $directory = 'recipe_images/' . $this->userId;
-                $fileName = $recipe->id . '.' . $ext;
-                $path = $directory . '/' . $fileName;
-
-                Storage::disk(config('filesystems.image_disk'))
-                    ->putFileAs($directory, $image, $fileName, 'public');
+            if ($request->hasFile('image')) {
+                $path = $this->convertToJpeg(
+                    $request->file('image'),
+                    $recipe->id,
+                    $this->userId
+                );
 
                 $recipe->update([
                     'image_path' => $path,
@@ -464,5 +463,35 @@ class RecipeController extends Controller
 
             return response()->json(['error' => $e->getMessage()], 500);
         }
+    }
+
+    private function convertToJpeg($file, int $recipeId, int $userId): string
+    {
+        $imagick = new Imagick();
+        $imagick->readImage($file->getRealPath());
+
+        // HEIC / PNG / GIF など多フレーム対策
+        if ($imagick->getNumberImages() > 1) {
+            $imagick = $imagick->mergeImageLayers(Imagick::LAYERMETHOD_FLATTEN);
+        }
+
+        $imagick->setImageFormat('jpeg');
+        $imagick->setImageCompression(Imagick::COMPRESSION_JPEG);
+        $imagick->setImageCompressionQuality(85);
+
+        // iPhone EXIF 回転対策（必須）
+        $imagick->autoOrient();
+
+        $directory = "recipe_images/{$userId}";
+        $fileName  = "{$recipeId}.jpg";
+        $path      = "{$directory}/{$fileName}";
+
+        Storage::disk(config('filesystems.image_disk'))
+            ->put($path, $imagick->getImageBlob(), 'public');
+
+        $imagick->clear();
+        $imagick->destroy();
+
+        return $path;
     }
 }
