@@ -9,7 +9,6 @@ RUN npm install
 COPY . .
 RUN npm run build
 
-
 # ===============================
 # 2. PHP + Laravel + nginx
 # ===============================
@@ -35,6 +34,14 @@ RUN apt-get update && apt-get install -y \
 # --- Imagick PHP拡張 ---
 RUN pecl install imagick \
     && docker-php-ext-enable imagick
+
+# -------------------------------
+# 3. PHP upload サイズ拡張
+# -------------------------------
+RUN echo "upload_max_filesize=10M" >> /usr/local/etc/php/php.ini \
+    && echo "post_max_size=10M" >> /usr/local/etc/php/php.ini \
+    && echo "memory_limit=256M" >> /usr/local/etc/php/php.ini \
+    && echo "max_execution_time=300" >> /usr/local/etc/php/php.ini
 
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
