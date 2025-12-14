@@ -498,8 +498,17 @@ Log::info(7);
 
             $path = "recipe_images/{$userId}/{$recipeId}.webp";
 Log::info(11);
+            $blob = $imagick->getImageBlob();
+            $tmpPath = storage_path("app/tmp_{$recipeId}.webp");
+            file_put_contents($tmpPath, $blob);
             Storage::disk(config('filesystems.image_disk'))
-                ->put($path, $imagick->getImageBlob(), 'public');
+                ->putFileAs(
+                    "recipe_images/{$userId}",
+                    new \Illuminate\Http\File($tmpPath),
+                    "{$recipeId}.webp",
+                    'public'
+                );
+            unlink($tmpPath);
 Log::info(12);
             $imagick->clear();
             Log::info(13);
