@@ -107,28 +107,21 @@ const RecipeCreate = () => {
             const img = new Image();
             const reader = new FileReader();
             reader.onload = (e) => {
-            img.src = e.target.result;
+                img.src = e.target.result;
+            };
             img.onload = () => {
                 const canvas = document.createElement('canvas');
                 let w = img.width;
                 let h = img.height;
-                if (w > h) {
-                if (w > maxWidth) {
-                    h = (h * maxWidth) / w;
-                    w = maxWidth;
-                }
-                } else {
-                if (h > maxHeight) {
-                    w = (w * maxHeight) / h;
-                    h = maxHeight;
-                }
-                }
+                if (w > h && w > maxWidth) { h = (h * maxWidth) / w; w = maxWidth; }
+                if (h >= w && h > maxHeight) { w = (w * maxHeight) / h; h = maxHeight; }
                 canvas.width = w;
                 canvas.height = h;
                 const ctx = canvas.getContext('2d');
                 ctx.drawImage(img, 0, 0, w, h);
-                canvas.toBlob(resolve, file.type);
-            };
+                canvas.toBlob((blob) => {
+                    resolve(new File([blob], file.name, { type: file.type }));
+                }, file.type, 0.8);
             };
             reader.readAsDataURL(file);
         });
@@ -192,7 +185,8 @@ const RecipeCreate = () => {
             formData.append('category', category || null);
             formData.append('url', recipeData.url || '');
             if (recipeData.image_path instanceof File) {
-                formData.append('image', recipeData.image_path);
+                const resizedFile = await resizeImage(recipeData.image_path, 1024, 1024);
+                formData.append('image', resizedFile);
             }
 
             recipeData.ingredients.forEach((ing, index) => {
@@ -272,7 +266,9 @@ const RecipeCreate = () => {
                                 const file = e.target.files[0];
                                 if (file) {
                                     setRecipeData(prev => ({ ...prev, image_path: file }));
-                                    resizeImage(file);
+                                    const reader = new FileReader();
+                                    reader.onloadend = () => setPreview(reader.result);
+                                    reader.readAsDataURL(file);
                                 }
                             }}
                         />
