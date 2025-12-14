@@ -158,7 +158,9 @@ const RecipeCreate = () => {
             formData.append('name', recipeData.name || '');
             formData.append('category', category || null);
             formData.append('url', recipeData.url || '');
-            formData.append('image', recipeData.image_path || '');
+            if (recipeData.image_path instanceof File) {
+                formData.append('image', recipeData.image_path);
+            }
 
             recipeData.ingredients.forEach((ing, index) => {
                 formData.append(`ingredients[${index}][id]`, ing.id || '');
@@ -166,11 +168,7 @@ const RecipeCreate = () => {
                 formData.append(`ingredients[${index}][amount]`, ing.amount);
             });
 
-            await axios.post('/recipe/create_post', formData, {
-                headers: {
-                    'Content-Type': 'multipart/form-data',
-                },
-            });
+            await axios.post('/recipe/create_post', formData);
 
             setSnackbar({
                 open: true,
