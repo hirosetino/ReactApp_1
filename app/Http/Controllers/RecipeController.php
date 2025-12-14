@@ -202,7 +202,7 @@ class RecipeController extends Controller
                 }
             }
 
-            if ($request->hasFile('image')) {
+            if ($request->hasFile('image') && $request->file('image')->isValid()) {
                 $image = $request->file('image');
                 $ext = $image->getClientOriginalExtension();
 
