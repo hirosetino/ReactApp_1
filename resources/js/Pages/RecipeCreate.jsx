@@ -12,6 +12,8 @@ import {
     Autocomplete,
     IconButton,
     Button,
+    Backdrop,
+    CircularProgress,
     Snackbar,
     Alert
 } from '@mui/material';
@@ -39,6 +41,8 @@ const RecipeCreate = () => {
     const [preview, setPreview] = useState(null);
     const fileInputRef = useRef();
 
+    const [isSubmitting, setIsSubmitting] = useState(false);
+
     const [snackbar, setSnackbar] = useState({
         open: false,
         message: '',
@@ -46,8 +50,6 @@ const RecipeCreate = () => {
         vertical: 'top',
         horizontal: 'center',
     });
-
-    const [debugLogs, setDebugLogs] = useState([]);
 
     useEffect(() => {
         axios.get('/get_categories')
@@ -140,20 +142,9 @@ const RecipeCreate = () => {
         return null;
     };
 
-    const addLog = (message) => {
-        setDebugLogs(prev => [
-            ...prev,
-            `[${new Date().toLocaleTimeString()}] ${message}`
-        ]);
-    };
-
-
     const handleSubmit = async () => {
-        addLog('submit start');
-
         const errorMessage = validateRecipe();
         if (errorMessage) {
-            addLog('validation error: ' + errorMessage);
             setSnackbar({
                 open: true,
                 message: errorMessage,
@@ -165,7 +156,7 @@ const RecipeCreate = () => {
         }
 
         try {
-            addLog('create FormData');
+            setIsSubmitting(true);
 
             const formData = new FormData();
             const category = selectedCategory?.id == null ? inputValue : selectedCategory?.id;
@@ -176,12 +167,7 @@ const RecipeCreate = () => {
             formData.append('url', recipeData.url || '');
 
             if (recipeData.image_path instanceof File) {
-                addLog(`image selected: ${recipeData.image_path.name}`);
-                addLog(`image type: ${recipeData.image_path.type}`);
-                addLog(`image size: ${Math.round(recipeData.image_path.size / 1024)} KB`);
                 formData.append('image', recipeData.image_path);
-            } else {
-                addLog('no image');
             }
 
             recipeData.ingredients.forEach((ing, index) => {
@@ -189,13 +175,9 @@ const RecipeCreate = () => {
                 formData.append(`ingredients[${index}][amount]`, ing.amount);
             });
 
-            addLog('POST start');
-
             await axios.post('/recipe/create_post', formData, {
-                timeout: 30000,
+                timeout: 60000,
             });
-
-            addLog('POST success');
 
             setSnackbar({
                 open: true,
@@ -204,10 +186,8 @@ const RecipeCreate = () => {
                 vertical: 'top',
                 horizontal: 'center'
             });
-
-        } catch (error) {
-            addLog('POST error');
-            addLog(error?.message || 'unknown error');
+        } catch (err) {
+            console.error('登録エラー', err);
 
             setSnackbar({
                 open: true,
@@ -216,6 +196,8 @@ const RecipeCreate = () => {
                 vertical: 'top',
                 horizontal: 'center'
             });
+        } finally {
+            setIsSubmitting(false);
         }
     };
 
@@ -385,7 +367,9 @@ const RecipeCreate = () => {
                         <Button
                             variant="contained"
                             sx={{ backgroundColor: "var(--color-orange)" }}
-                            onClick={handleSubmit}>
+                            onClick={handleSubmit}
+                            disabled={isSubmitting}
+                        >
                             {recipeId ? '更新' : '登録'}
                         </Button>
                     </Box>
@@ -407,29 +391,15 @@ const RecipeCreate = () => {
                 </Alert>
             </Snackbar>
 
-            <Box
+            <Backdrop
                 sx={{
-                    position: 'fixed',
-                    bottom: 0,
-                    left: 0,
-                    width: '100%',
-                    maxHeight: '40vh',
-                    overflowY: 'auto',
-                    backgroundColor: '#000',
-                    color: '#0f0',
-                    fontSize: 12,
-                    p: 1,
-                    zIndex: 9999,
+                    color: '#fff',
+                    zIndex: (theme) => theme.zIndex.drawer + 1,
                 }}
+                open={isSubmitting}
             >
-                <Typography sx={{ color: '#0f0', fontSize: 12 }}>
-                    DEBUG LOG
-                </Typography>
-
-                {debugLogs.map((log, index) => (
-                    <div key={index}>{log}</div>
-                ))}
-            </Box>
+                <CircularProgress color="inherit" />
+            </Backdrop>
         </>
     );
 };

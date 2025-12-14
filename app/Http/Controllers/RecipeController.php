@@ -129,10 +129,12 @@ class RecipeController extends Controller
             $category_id = null;
             if ($data['category']) {
                 if (!is_numeric($data['category'])) {
-                    $category = Category::create([
-                        'name' => $data['category']
-                    ]);
-                    $category_id = $category->id;
+                    if ($data['category'] !== 'null') {
+                        $category = Category::create([
+                            'name' => $data['category']
+                        ]);
+                        $category_id = $category->id;
+                    }
                 } else {
                     $category_id = $data['category'];
                 }
@@ -204,10 +206,8 @@ class RecipeController extends Controller
                 }
             }
 
-            Log::info(['リクエスト', $request->hasFile('image'), $data['image']]);
             if ($request->hasFile('image')) {
                 $file = $request->file('image');
-                Log::info([1, $file]);
                 $path = $this->convertToWebp(
                     $file,
                     $recipe->id,
@@ -502,10 +502,9 @@ class RecipeController extends Controller
             $imagick->setImageCompressionQuality(80);
 
             $path = "recipe_images/{$userId}/{$recipeId}.webp";
-Log::info($path);
             Storage::disk(config('filesystems.image_disk'))
                 ->put($path, $imagick->getImageBlob(), 'public');
-Log::info(123);
+
             $imagick->clear();
             $imagick->destroy();
 
