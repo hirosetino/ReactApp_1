@@ -181,7 +181,7 @@ const RecipeCreate = () => {
             console.error('登録エラー:', error);
             setSnackbar({
                 open: true,
-                message: '登録に失敗しました',
+                message: error,
                 severity: 'error',
                 vertical: 'top',
                 horizontal: 'center'
