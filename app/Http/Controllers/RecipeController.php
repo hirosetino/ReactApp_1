@@ -204,7 +204,7 @@ class RecipeController extends Controller
                 }
             }
 
-            Log::info(['リクエスト', $request->hasFile('image')]);
+            Log::info(['リクエスト', $request->hasFile('image'), $data]);
             if ($request->hasFile('image')) {
                 $path = $this->convertToWebp(
                     $request->file('image'),
