@@ -205,13 +205,15 @@ class RecipeController extends Controller
             }
 
             Log::info(['リクエスト', $request->hasFile('image'), $data['image']]);
-            if ($data['image']) {
+            if ($request->hasFile('image')) {
+                $file = $request->file('image');
+
                 $path = $this->convertToWebp(
-                    $request->file('image'),
+                    $file,
                     $recipe->id,
                     $this->userId
                 );
-                Log::info(['登録', $path]);
+
                 $recipe->update([
                     'image_path' => $path,
                 ]);
@@ -470,35 +472,24 @@ class RecipeController extends Controller
         try {
             $imagick = new Imagick();
 
-            // Safari / iOS 安定化
-            $imagick->readImageBlob(
-                file_get_contents($file->getRealPath())
-            );
+            $imagick->readImage($file->getRealPath());
 
-            // HEIC / GIF 多フレーム対策
             if ($imagick->getNumberImages() > 1) {
                 $imagick = $imagick->mergeImageLayers(
                     Imagick::LAYERMETHOD_FLATTEN
                 );
             }
 
-            // 色・向き・透明度（重要）
             $imagick->autoOrient();
             $imagick->setImageColorspace(Imagick::COLORSPACE_SRGB);
             $imagick->setImageAlphaChannel(Imagick::ALPHACHANNEL_ACTIVATE);
-
-            // メタデータ削除（軽量化）
             $imagick->stripImage();
 
-            // WebP 変換
             $imagick->setImageFormat('webp');
             $imagick->setOption('webp:method', '6');
             $imagick->setImageCompressionQuality(80);
 
-            $directory = "recipe_images/{$userId}";
-            $fileName  = "{$recipeId}.webp";
-            $path      = "{$directory}/{$fileName}";
-            Log::info(['パス作成', $path]);
+            $path = "recipe_images/{$userId}/{$recipeId}.webp";
 
             Storage::disk(config('filesystems.image_disk'))
                 ->put($path, $imagick->getImageBlob(), 'public');
@@ -509,7 +500,7 @@ class RecipeController extends Controller
             return $path;
 
         } catch (\Throwable $e) {
-            \Log::error('WebP変換エラー', [
+            Log::error('WebP変換エラー', [
                 'message' => $e->getMessage(),
                 'file' => $file->getClientOriginalName(),
             ]);
