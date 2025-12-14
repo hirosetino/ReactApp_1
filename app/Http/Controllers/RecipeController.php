@@ -470,54 +470,45 @@ class RecipeController extends Controller
     private function convertToWebp($file, int $recipeId, int $userId): string
     {
         try {
-            Log::info(0);
             $imagick = new Imagick();
-Log::info(1);
+
             $imagick->readImage($file->getRealPath());
-Log::info(2);
+
+            // 多フレーム（HEIC / GIF）
             if ($imagick->getNumberImages() > 1) {
                 $imagick = $imagick->mergeImageLayers(
                     Imagick::LAYERMETHOD_FLATTEN
                 );
             }
-Log::info(3);
+
+            // 向き補正（iPhone必須）
             $imagick->autoOrient();
-            Log::info(4);
+
+            // sRGB 固定
             $imagick->setImageColorspace(Imagick::COLORSPACE_SRGB);
-            Log::info(5);
-            $imagick->setImageAlphaChannel(Imagick::ALPHACHANNEL_ACTIVATE);
-            Log::info(6);
+
+            if (!$imagick->getImageAlphaChannel()) {
+                // 🔥 透明を潰す（重要）
+                $imagick->setImageBackgroundColor('white');
+                $imagick = $imagick->mergeImageLayers(Imagick::LAYERMETHOD_FLATTEN);
+            }
+
+            // メタデータ削除
             $imagick->stripImage();
-Log::info(7);
+
+            // WebP
             $imagick->setImageFormat('webp');
-            Log::info(8);
             $imagick->setOption('webp:method', '6');
-            Log::info(9);
             $imagick->setImageCompressionQuality(80);
-            Log::info(10);
 
             $path = "recipe_images/{$userId}/{$recipeId}.webp";
-Log::info(11);
-Log::info('image_disk', [
-    config('filesystems.image_disk'),
-    config("filesystems.disks." . config('filesystems.image_disk'))
-]);
-            $blob = $imagick->getImageBlob();
-            $tmpPath = storage_path("app/tmp_{$recipeId}.webp");
-            file_put_contents($tmpPath, $blob);
+Log::info($path);
             Storage::disk(config('filesystems.image_disk'))
-                ->putFileAs(
-                    "recipe_images/{$userId}",
-                    new \Illuminate\Http\File($tmpPath),
-                    "{$recipeId}.webp",
-                    'public'
-                );
-            unlink($tmpPath);
-Log::info(12);
+                ->put($path, $imagick->getImageBlob(), 'public');
+Log::info(123);
             $imagick->clear();
-            Log::info(13);
             $imagick->destroy();
-            Log::info([1, $path]);
+
             return $path;
         } catch (\Throwable $e) {
             Log::error('WebP変換エラー', [
