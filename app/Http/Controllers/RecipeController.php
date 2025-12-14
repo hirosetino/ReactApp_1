@@ -207,7 +207,7 @@ class RecipeController extends Controller
             Log::info(['リクエスト', $request->hasFile('image'), $data['image']]);
             if ($request->hasFile('image')) {
                 $file = $request->file('image');
-
+                Log::info([1, $file]);
                 $path = $this->convertToWebp(
                     $file,
                     $recipe->id,
@@ -496,9 +496,8 @@ class RecipeController extends Controller
 
             $imagick->clear();
             $imagick->destroy();
-
+            Log::info([1, $path]);
             return $path;
-
         } catch (\Throwable $e) {
             Log::error('WebP変換エラー', [
                 'message' => $e->getMessage(),
