@@ -47,6 +47,8 @@ const RecipeCreate = () => {
         horizontal: 'center',
     });
 
+    const [debugLogs, setDebugLogs] = useState([]);
+
     useEffect(() => {
         axios.get('/get_categories')
             .then((res) => {
@@ -138,9 +140,20 @@ const RecipeCreate = () => {
         return null;
     };
 
+    const addLog = (message) => {
+        setDebugLogs(prev => [
+            ...prev,
+            `[${new Date().toLocaleTimeString()}] ${message}`
+        ]);
+    };
+
+
     const handleSubmit = async () => {
+        addLog('submit start');
+
         const errorMessage = validateRecipe();
         if (errorMessage) {
+            addLog('validation error: ' + errorMessage);
             setSnackbar({
                 open: true,
                 message: errorMessage,
@@ -152,23 +165,37 @@ const RecipeCreate = () => {
         }
 
         try {
+            addLog('create FormData');
+
             const formData = new FormData();
             const category = selectedCategory?.id == null ? inputValue : selectedCategory?.id;
+
             formData.append('recipes_id', recipeData.recipes_id || '');
             formData.append('name', recipeData.name || '');
             formData.append('category', category || null);
             formData.append('url', recipeData.url || '');
+
             if (recipeData.image_path instanceof File) {
+                addLog(`image selected: ${recipeData.image_path.name}`);
+                addLog(`image type: ${recipeData.image_path.type}`);
+                addLog(`image size: ${Math.round(recipeData.image_path.size / 1024)} KB`);
                 formData.append('image', recipeData.image_path);
+            } else {
+                addLog('no image');
             }
 
             recipeData.ingredients.forEach((ing, index) => {
-                formData.append(`ingredients[${index}][id]`, ing.id || '');
                 formData.append(`ingredients[${index}][name]`, ing.name);
                 formData.append(`ingredients[${index}][amount]`, ing.amount);
             });
 
-            await axios.post('/recipe/create_post', formData);
+            addLog('POST start');
+
+            await axios.post('/recipe/create_post', formData, {
+                timeout: 30000,
+            });
+
+            addLog('POST success');
 
             setSnackbar({
                 open: true,
@@ -177,8 +204,11 @@ const RecipeCreate = () => {
                 vertical: 'top',
                 horizontal: 'center'
             });
+
         } catch (error) {
-            console.error('登録エラー:', error);
+            addLog('POST error');
+            addLog(error?.message || 'unknown error');
+
             setSnackbar({
                 open: true,
                 message: '登録に失敗しました',
@@ -376,6 +406,30 @@ const RecipeCreate = () => {
                     {snackbar.message}
                 </Alert>
             </Snackbar>
+
+            <Box
+                sx={{
+                    position: 'fixed',
+                    bottom: 0,
+                    left: 0,
+                    width: '100%',
+                    maxHeight: '40vh',
+                    overflowY: 'auto',
+                    backgroundColor: '#000',
+                    color: '#0f0',
+                    fontSize: 12,
+                    p: 1,
+                    zIndex: 9999,
+                }}
+            >
+                <Typography sx={{ color: '#0f0', fontSize: 12 }}>
+                    DEBUG LOG
+                </Typography>
+
+                {debugLogs.map((log, index) => (
+                    <div key={index}>{log}</div>
+                ))}
+            </Box>
         </>
     );
 };
