@@ -74,70 +74,74 @@ class RecipeController extends Controller
 
     public function get_recipes_paginate(Request $request)
     {
-        try {
-            $perPage = 10;
-            $page = $request->input('page', 1);
-            $keyword = $request->input('searchKeyword', '');
-            $categories = $request->input('selectedCategories', []);
-            $onlyFavorite = filter_var($request->input('onlyFavorite', false), FILTER_VALIDATE_BOOLEAN);
+        $perPage = 10;
+        $keyword = $request->input('searchKeyword', '');
+        $categories = $request->input('selectedCategories', []);
+        $onlyFavorite = filter_var(
+            $request->input('onlyFavorite', false),
+            FILTER_VALIDATE_BOOLEAN
+        );
 
-            $recipes = Recipe::query()
-                ->with([
-                    'ingredient' => function ($query) {
-                        $query->select('id', 'recipes_id', 'name', 'amount')
-                            ->where('delete_flg', 0);
-                    },
-                    'category:id,name'
-                ])
-                ->where('users_id', $this->userId)
-                ->where('delete_flg', 0)
-                ->orderBy('id', 'desc');
+        $recipes = Recipe::query()
+            ->select([
+                'id',
+                'name',
+                'category_id',
+                'favorite_flg',
+                'image_path',
+            ])
+            ->with('category:id,name')
+            ->where('users_id', $this->userId)
+            ->where('delete_flg', 0)
+            ->orderByDesc('id');
 
-            if (!empty($keyword)) {
-                $recipes->where(function ($query) use ($keyword) {
-                    $query->where('name', 'like', "%{$keyword}%")
-                        ->orWhereHas('ingredient', function ($q) use ($keyword) {
-                            $q->where('name', 'like', "%{$keyword}%");
-                        });
-                });
-            }
-
-            if (count($categories) > 0) {
-                $recipes->whereIn('category_id', $categories);
-            }
-
-            if ($onlyFavorite) {
-                $recipes->where('favorite_flg', 1);
-            }
-
-            $recipes = $recipes->paginate($perPage, ['*'], 'page', $page);
-
-            return response()->json($recipes);
-        } catch (\Exception $e) {
-            Log::error('Error in get_recipes_paginate: ' . $e->getMessage());
-
-            return response()->json(['error' => 'Server Error'], 500);
+        if ($keyword !== '') {
+            $recipes->where(function ($query) use ($keyword) {
+                $query->where('name', 'like', "%{$keyword}%")
+                    ->orWhereExists(function ($sub) use ($keyword) {
+                        $sub->select(DB::raw(1))
+                            ->from('m_ingredients')
+                            ->whereColumn('m_ingredients.recipes_id', 'm_recipes.id')
+                            ->where('m_ingredients.delete_flg', 0)
+                            ->where('m_ingredients.name', 'like', "%{$keyword}%");
+                    });
+            });
         }
+
+        if ($categories) {
+            $recipes->whereIn('category_id', $categories);
+        }
+
+        if ($onlyFavorite) {
+            $recipes->where('favorite_flg', 1);
+        }
+
+        return response()->json(
+            $recipes->simplePaginate($perPage)
+        );
     }
 
     public function recipe_post(Request $request)
     {
+        $recipe = null;
+
         DB::beginTransaction();
         try {
-            $data = $request->all();
+            $data = $request->only([
+                'recipes_id',
+                'name',
+                'url',
+                'category',
+                'ingredients'
+            ]);
 
             $category_id = null;
-            if ($data['category']) {
-                if (!is_numeric($data['category'])) {
-                    if ($data['category'] !== 'null') {
-                        $category = Category::create([
-                            'name' => $data['category']
-                        ]);
-                        $category_id = $category->id;
-                    }
-                } else {
-                    $category_id = $data['category'];
-                }
+            if (!empty($data['category']) && $data['category'] !== 'null') {
+                $category_id = is_numeric($data['category'])
+                    ? $data['category']
+                    : Category::firstOrCreate(
+                        ['name' => $data['category']]
+                    )->id;
             }
 
             if (!$data['recipes_id']) {
@@ -156,9 +160,12 @@ class RecipeController extends Controller
                         'amount' => $ingredient['amount'],
                     ];
                 }
-                Ingredient::insert($insertData);
+
+                if (!empty($insertData)) {
+                    Ingredient::insert($insertData);
+                }
             } else {
-                $recipe = Recipe::where('id', $data['recipes_id'])->first();
+                $recipe = Recipe::findOrFail($data['recipes_id']);
 
                 $recipe->update([
                         'name' => $data['name'],
@@ -167,22 +174,23 @@ class RecipeController extends Controller
                         'delete_flg' => 0,
                     ]);
 
-                $ingredient_ids = Ingredient::where('recipes_id', $data['recipes_id'])
+                $existingIngredientIds = Ingredient::where('recipes_id', $data['recipes_id'])
                     ->where('delete_flg', 0)
-                    ->pluck('id')
+                    ->pluck('id', 'id')
                     ->toArray();
 
-                $existingIds = [];
+                $upsertData = [];
                 $insertData = [];
-
+                $usedIds = [];
                 foreach ($data['ingredients'] as $ingredient) {
-                    if (!empty($ingredient['id']) && in_array($ingredient['id'], $ingredient_ids)) {
-                        Ingredient::where('id', $ingredient['id'])
-                            ->update([
-                                'name' => $ingredient['name'],
-                                'amount' => $ingredient['amount'],
-                            ]);
-                        $existingIds[] = $ingredient['id'];
+                    if (!empty($ingredient['id']) && isset($existingIngredientIds[$ingredient['id']])) {
+                        $upsertData[] = [
+                            'id' => $ingredient['id'],
+                            'name' => $ingredient['name'],
+                            'amount' => $ingredient['amount'],
+                            'delete_flg' => 0,
+                        ];
+                        $usedIds[] = $ingredient['id'];
                     } else {
                         $insertData[] = [
                             'recipes_id' => $data['recipes_id'],
@@ -192,34 +200,47 @@ class RecipeController extends Controller
                     }
                 }
 
-                $idsToDelete = array_diff($ingredient_ids, $existingIds);
-
-                if (!empty($idsToDelete)) {
-                    Ingredient::whereIn('id', $idsToDelete)
-                        ->update([
-                            'delete_flg' => 1,
-                        ]);
+                if ($upsertData) {
+                    Ingredient::upsert(
+                        $upsertData,
+                        ['id'],
+                        ['name', 'amount', 'delete_flg']
+                    );
                 }
 
-                if (!empty($insertData)) {
+                $idsToDelete = array_diff(array_keys($existingIngredientIds), $usedIds);
+
+                if ($idsToDelete) {
+                    Ingredient::whereIn('id', $idsToDelete)
+                        ->update(['delete_flg' => 1]);
+                }
+
+                if ($insertData) {
                     Ingredient::insert($insertData);
                 }
             }
 
-            if ($request->hasFile('image')) {
-                $file = $request->file('image');
-                $path = $this->convertToWebp(
-                    $file,
-                    $recipe->id,
-                    $this->userId
-                );
+            DB::commit();
 
-                $recipe->update([
-                    'image_path' => $path,
+            try {
+                if ($request->hasFile('image')) {
+                    $file = $request->file('image');
+                    $path = $this->convertToWebp(
+                        $file,
+                        $recipe->id,
+                        $this->userId
+                    );
+
+                    $recipe->update([
+                        'image_path' => $path,
+                    ]);
+                }
+            } catch (\Throwable $e) {
+                Log::error('webp変換失敗', [
+                    'recipe_id' => $recipe->id,
+                    'error' => $e->getMessage()
                 ]);
             }
-
-            DB::commit();
 
             return response()->json(['message' => 'レシピ保存完了'], 200);
         } catch (\Exception $e) {
@@ -233,7 +254,7 @@ class RecipeController extends Controller
     public function favorite_recipe(Request $request)
     {
         try {
-            $data = $request->all();
+            $data = $request->only(['recipe_id']);
 
             $recipe = Recipe::where('id', $data['recipe_id'])
                 ->where('delete_flg', 0)
@@ -255,7 +276,7 @@ class RecipeController extends Controller
     public function delete_recipe(Request $request)
     {
         try {
-            $data = $request->all();
+            $data = $request->only(['recipe_id']);
 
             $recipe = Recipe::where('id', $data['recipe_id'])
                 ->where('delete_flg', 0)
@@ -296,7 +317,11 @@ class RecipeController extends Controller
     public function get_menus(Request $request)
     {
         try {
-            $data = $request->all();
+            $data = $request->only([
+                'startDate',
+                'endDate'
+            ]);
+
             $menus = Menu::query()
                 ->with([
                     'recipe' => function($query) {
@@ -335,7 +360,10 @@ class RecipeController extends Controller
     {
         DB::beginTransaction();
         try {
-            $data = $request->all();
+            $data = $request->only([
+                'menus',
+                'date'
+            ]);
 
             if (empty($data['menus']) || !is_array($data['menus'])) {
                 return response()->json(['error' => 'メニュー情報が不正です'], 400);
