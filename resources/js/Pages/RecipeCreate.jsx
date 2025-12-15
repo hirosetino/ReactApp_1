@@ -310,7 +310,17 @@ const RecipeCreate = () => {
                         onChange={(e) => setRecipeData(prev => ({ ...prev, url: e.target.value }))}
                     />
                     {recipeData.url && (
-                        <Link href={recipeData.url} target="_blank" rel="noopener noreferrer">
+                        <Link
+                            href={recipeData.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            sx={{
+                                display: 'block',
+                                maxWidth: '100%',
+                                wordBreak: 'break-all',
+                                overflowWrap: 'anywhere',
+                            }}
+                        >
                             {recipeData.url}
                         </Link>
                     )}

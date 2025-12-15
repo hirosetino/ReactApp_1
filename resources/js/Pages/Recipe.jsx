@@ -493,7 +493,7 @@ const Recipe = () => {
             <Backdrop
                 sx={{
                     color: '#fff',
-                    zIndex: (theme) => theme.zIndex.drawer + 1,
+                    zIndex: 9999,
                 }}
                 open={isSubmitting}
             >
