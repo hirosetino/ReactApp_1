@@ -19,6 +19,10 @@ import {
     DialogTitle,
     DialogContent,
     Box,
+    Backdrop,
+    CircularProgress,
+    Snackbar,
+    Alert
 } from '@mui/material';
 import SearchIcon from "@mui/icons-material/Search";
 import PostAddIcon from "@mui/icons-material/PostAdd";
@@ -50,6 +54,16 @@ const Recipe = () => {
     const [searchKeyword, setSearchKeyword] = useState('');
     const [selectedCategories, setSelectedCategories] = useState([]);
     const [onlyFavorite, setOnlyFavorite] = useState(false);
+
+    const [isSubmitting, setIsSubmitting] = useState(false);
+
+    const [snackbar, setSnackbar] = useState({
+        open: false,
+        message: '',
+        severity: 'success',
+        vertical: 'top',
+        horizontal: 'center',
+    });
 
     // ページごとにレシピ取得（1ページ10件）
     const fetchRecipes = async () => {
@@ -204,13 +218,31 @@ const Recipe = () => {
 
     const deleteRecipe  = async () => {
         try {
+            setIsSubmitting(true);
+
             await axios.post('/recipe/delete', { recipe_id: targetRecipe.id });
             setRecipes(prev => prev.filter(recipe => recipe.id !== targetRecipe.id));
             setShowDeleteModal(false);
-            alert('削除に成功しました');
-        } catch (error) {
-            console.log(error);
-            alert('レシピの削除に失敗しました');
+
+            setSnackbar({
+                open: true,
+                message: '削除に成功しました',
+                severity: 'success',
+                vertical: 'top',
+                horizontal: 'center'
+            });
+        } catch (err) {
+            console.log('削除エラー', err);
+
+            setSnackbar({
+                open: true,
+                message: '削除に失敗しました',
+                severity: 'error',
+                vertical: 'top',
+                horizontal: 'center'
+            });
+        } finally {
+            setIsSubmitting(false);
         }
     };
 
@@ -442,6 +474,31 @@ const Recipe = () => {
                     </Box>
                 </DialogContent>
             </Dialog>
+
+            <Snackbar
+                anchorOrigin={{ vertical: snackbar.vertical, horizontal: snackbar.horizontal }}
+                open={snackbar.open}
+                autoHideDuration={3000}
+                onClose={() => setSnackbar((prev) => ({ ...prev, open: false }))}
+            >
+                <Alert
+                    onClose={() => setSnackbar((prev) => ({ ...prev, open: false }))}
+                    severity={snackbar.severity}
+                    sx={{ width: '100%' }}
+                >
+                    {snackbar.message}
+                </Alert>
+            </Snackbar>
+
+            <Backdrop
+                sx={{
+                    color: '#fff',
+                    zIndex: (theme) => theme.zIndex.drawer + 1,
+                }}
+                open={isSubmitting}
+            >
+                <CircularProgress color="inherit" />
+            </Backdrop>
         </Layout>
     );
 };
