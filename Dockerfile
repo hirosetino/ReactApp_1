@@ -1,7 +1,7 @@
 # ===============================
 # 1. Build Frontend (React + Vite)
 # ===============================
-FROM node:18 AS node-build
+FROM node:24 AS node-build
 
 WORKDIR /app
 COPY package*.json ./
@@ -9,17 +9,18 @@ RUN npm install
 COPY . .
 RUN npm run build
 
-
 # ===============================
-# 2. PHP + Laravel + nginx
+# 2. PHP + Laravel + nginx + cron + supervisor
 # ===============================
-FROM php:8.2-fpm
+FROM php:8.4-fpm
 
 # --- 必須ライブラリ ---
 RUN apt-get update && apt-get install -y \
     nginx \
     git \
     unzip \
+    cron \
+    supervisor \
     libzip-dev \
     libpng-dev \
     libjpeg-dev \
@@ -37,24 +38,40 @@ RUN pecl install imagick \
     && docker-php-ext-enable imagick
 
 # -------------------------------
-# 3. PHP upload サイズ拡張
+# PHP 設定
 # -------------------------------
 RUN echo "upload_max_filesize=100M" >> /usr/local/etc/php/php.ini \
     && echo "post_max_size=100M" >> /usr/local/etc/php/php.ini \
     && echo "memory_limit=256M" >> /usr/local/etc/php/php.ini \
     && echo "max_execution_time=300" >> /usr/local/etc/php/php.ini
 
+# --- composer ---
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
 WORKDIR /var/www/html
 
+# --- Laravel ---
 COPY . .
 COPY --from=node-build /app/public/build ./public/build
 
-RUN composer install --no-dev --optimize-autoloader
-RUN chmod -R 777 storage bootstrap/cache
-RUN php artisan storage:link
+RUN composer install --no-dev --optimize-autoloader \
+    && chmod -R 777 storage bootstrap/cache \
+    && php artisan storage:link
 
+# --- nginx ---
 COPY ./docker/nginx.conf /etc/nginx/nginx.conf
 
-CMD service nginx start && php-fpm
+# --- cron ---
+COPY ./docker/laravel-cron /etc/cron.d/laravel-cron
+RUN chmod 0644 /etc/cron.d/laravel-cron \
+    && crontab /etc/cron.d/laravel-cron
+
+# --- supervisor ---
+COPY ./docker/supervisor/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
+
+# -------------------------------
+# 起動
+# -------------------------------
+CMD service cron start \
+    && service nginx start \
+    && supervisord -n
