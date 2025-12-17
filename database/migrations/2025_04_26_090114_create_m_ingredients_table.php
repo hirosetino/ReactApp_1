@@ -13,7 +13,7 @@ return new class extends Migration
     {
         Schema::create('m_ingredients', function (Blueprint $table) {
             $table->id()->comment('材料ID');
-            $table->integer('recipes_id')->comment('レシピID');
+            $table->bigInteger('recipes_id')->comment('レシピID');
             $table->string('name')->comment('材料名');
             $table->string('amount')->nullable()->comment('量');
             $table->tinyInteger('delete_flg')->default(0)->comment('削除フラグ');

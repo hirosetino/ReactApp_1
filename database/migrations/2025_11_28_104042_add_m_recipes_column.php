@@ -12,7 +12,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('m_recipes', function (Blueprint $table) {
-            $table->integer('category_id')->nullable()->comment('カテゴリID')->after('users_id');
+            $table->bigInteger('category_id')->nullable()->comment('カテゴリID')->after('users_id');
         });
     }
 
