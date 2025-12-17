@@ -108,7 +108,6 @@ const Recipe = () => {
             });
     }, []);
 
-    // 初回取得
     useEffect(() => {
         fetchRecipes();
     }, [fetchRecipes]);
@@ -133,9 +132,7 @@ const Recipe = () => {
         return () => window.removeEventListener('scroll', handleScroll);
     }, [fetchRecipes, hasMore, loading, page]);
 
-    // 条件変更時にfetch
     useEffect(() => {
-        // ページ・レシピをリセット
         setPage(1);
         setHasMore(true);
         setRecipes([]);
@@ -159,7 +156,7 @@ const Recipe = () => {
                 setFavoriteIds(favoriteIdsFromApi);
 
                 setHasMore(res.data.next_page_url !== null);
-                setPage(2); // 次ページは2
+                setPage(2);
             } catch (err) {
                 console.error('APIエラー:', err);
             } finally {
@@ -170,7 +167,6 @@ const Recipe = () => {
         fetchFilteredRecipes();
     }, [searchKeyword, selectedCategories, onlyFavorite]);
 
-    // ページ移動
     const movePage = (id) => {
         if (id !== null) {
             window.location.href = `/recipe/create?id=${id}`;
