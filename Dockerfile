@@ -73,6 +73,4 @@ COPY ./docker/supervisor/supervisord.conf /etc/supervisor/conf.d/supervisord.con
 # -------------------------------
 # 起動
 # -------------------------------
-CMD service cron start \
-    && service nginx start \
-    && supervisord -n
+CMD ["supervisord", "-n", "-c", "/etc/supervisor/conf.d/supervisord.conf"]
