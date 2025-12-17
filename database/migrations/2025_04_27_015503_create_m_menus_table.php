@@ -13,8 +13,8 @@ return new class extends Migration
     {
         Schema::create('m_menus', function (Blueprint $table) {
             $table->id()->comment('献立ID');
-            $table->integer('users_id')->comment('ユーザーID');
-            $table->integer('recipes_id')->comment('レシピID');
+            $table->bigInteger('users_id')->comment('ユーザーID');
+            $table->bigInteger('recipes_id')->comment('レシピID');
             $table->date('date')->comment('日');
             $table->integer('time_zone_type')->comment('時間帯ID');
             $table->text('memo')->nullable()->comment('メモ');
