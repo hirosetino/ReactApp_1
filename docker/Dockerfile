@@ -21,6 +21,7 @@ RUN apt-get update && apt-get install -y \
     unzip \
     cron \
     supervisor \
+    procps \
     libzip-dev \
     libpng-dev \
     libjpeg-dev \
