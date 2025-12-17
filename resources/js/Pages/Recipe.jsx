@@ -151,6 +151,7 @@ const Recipe = () => {
                         onlyFavorite
                     }
                 });
+                console.log(res.data.data);
                 setRecipes(res.data.data);
 
                 const favoriteIdsFromApi = res.data.data

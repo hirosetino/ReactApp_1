@@ -8,8 +8,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Log;
 
-use Imagick;
-
+use App\Jobs\ConvertRecipeImageToWebp;
 use App\Models\Recipe;
 use App\Models\Ingredient;
 use App\Models\Category;
@@ -57,7 +56,10 @@ class RecipeController extends Controller
         try {
             $recipe = Recipe::query()
                 ->with([
-                    'ingredient',
+                    'ingredient' => function ($query) {
+                        $query->select('id', 'recipes_id', 'name', 'amount')
+                            ->where('delete_flg', 0);
+                    },
                     'category:id,name'
                 ])
                 ->where('id', $id)
@@ -90,7 +92,13 @@ class RecipeController extends Controller
                 'favorite_flg',
                 'image_path',
             ])
-            ->with('category:id,name')
+            ->with([
+                'category:id,name',
+                'ingredient' => function ($query) {
+                    $query->select('id', 'recipes_id', 'name', 'amount')
+                        ->where('delete_flg', 0);
+                },
+            ])
             ->where('users_id', $this->userId)
             ->where('delete_flg', 0)
             ->orderByDesc('id');
@@ -123,9 +131,8 @@ class RecipeController extends Controller
 
     public function recipe_post(Request $request)
     {
-        $recipe = null;
-
         DB::beginTransaction();
+
         try {
             $data = $request->only([
                 'recipes_id',
@@ -139,115 +146,111 @@ class RecipeController extends Controller
             if (!empty($data['category']) && $data['category'] !== 'null') {
                 $category_id = is_numeric($data['category'])
                     ? $data['category']
-                    : Category::firstOrCreate(
-                        ['name' => $data['category']]
-                    )->id;
+                    : Category::firstOrCreate([
+                        'name' => $data['category']
+                    ])->id;
             }
 
-            if (!$data['recipes_id']) {
+            if (empty($data['recipes_id'])) {
+                /* ---------- 新規作成 ---------- */
                 $recipe = Recipe::create([
-                    'users_id' => $this->userId,
+                    'users_id'    => $this->userId,
                     'category_id' => $category_id,
-                    'name' => $data['name'],
-                    'url' => $data['url']
+                    'name'        => $data['name'],
+                    'url'         => $data['url'],
                 ]);
 
-                $insertData = [];
-                foreach($data['ingredients'] as $key => $ingredient) {
-                    $insertData[] = [
+                $ingredientsByName = [];
+                foreach ($data['ingredients'] ?? [] as $ingredient) {
+                    $name = trim($ingredient['name'] ?? '');
+                    if ($name === '') continue;
+
+                    $ingredientsByName[$name] = [
                         'recipes_id' => $recipe->id,
-                        'name' => $ingredient['name'],
-                        'amount' => $ingredient['amount'],
+                        'name'       => $name,
+                        'amount'     => $ingredient['amount'] ?? null,
                     ];
                 }
 
-                if (!empty($insertData)) {
-                    Ingredient::insert($insertData);
+                if ($ingredientsByName) {
+                    Ingredient::insert(array_values($ingredientsByName));
                 }
             } else {
-                $recipe = Recipe::findOrFail($data['recipes_id']);
+                /* ---------- 更新 ---------- */
+                $recipe = Recipe::where('id', $data['recipes_id'])
+                    ->where('users_id', $this->userId)
+                    ->firstOrFail();
 
                 $recipe->update([
-                        'name' => $data['name'],
-                        'category_id' => $category_id,
-                        'url' => $data['url'],
-                        'delete_flg' => 0,
-                    ]);
+                    'name'        => $data['name'],
+                    'category_id' => $category_id,
+                    'url'         => $data['url'],
+                    'delete_flg'  => 0,
+                ]);
 
-                $existingIngredientIds = Ingredient::where('recipes_id', $data['recipes_id'])
+                $existingIngredients = Ingredient::where('recipes_id', $recipe->id)
                     ->where('delete_flg', 0)
-                    ->pluck('id', 'id')
-                    ->toArray();
+                    ->get()
+                    ->keyBy('name');
 
-                $upsertData = [];
-                $insertData = [];
-                $usedIds = [];
-                foreach ($data['ingredients'] as $ingredient) {
-                    if (!empty($ingredient['id']) && isset($existingIngredientIds[$ingredient['id']])) {
-                        $upsertData[] = [
-                            'id' => $ingredient['id'],
-                            'name' => $ingredient['name'],
-                            'amount' => $ingredient['amount'],
+                $usedNames = [];
+                foreach ($data['ingredients'] ?? [] as $ingredient) {
+                    $name = trim($ingredient['name'] ?? '');
+                    if ($name === '') continue;
+
+                    $usedNames[] = $name;
+                    if ($existingIngredients->has($name)) {
+                        $existingIngredients[$name]->update([
+                            'amount'     => $ingredient['amount'],
                             'delete_flg' => 0,
-                        ];
-                        $usedIds[] = $ingredient['id'];
+                        ]);
                     } else {
-                        $insertData[] = [
-                            'recipes_id' => $data['recipes_id'],
-                            'name' => $ingredient['name'],
-                            'amount' => $ingredient['amount'],
-                        ];
+                        Ingredient::create([
+                            'recipes_id' => $recipe->id,
+                            'name'       => $name,
+                            'amount'     => $ingredient['amount'],
+                            'delete_flg' => 0,
+                        ]);
                     }
                 }
 
-                if ($upsertData) {
-                    Ingredient::upsert(
-                        $upsertData,
-                        ['id'],
-                        ['name', 'amount', 'delete_flg']
-                    );
-                }
-
-                $idsToDelete = array_diff(array_keys($existingIngredientIds), $usedIds);
-
-                if ($idsToDelete) {
-                    Ingredient::whereIn('id', $idsToDelete)
-                        ->update(['delete_flg' => 1]);
-                }
-
-                if ($insertData) {
-                    Ingredient::insert($insertData);
+                $namesToDelete = $existingIngredients->keys()->diff($usedNames);
+                if ($namesToDelete->isNotEmpty()) {
+                    Ingredient::where('recipes_id', $recipe->id)
+                        ->whereIn('name', $namesToDelete)
+                        ->update([
+                            'delete_flg' => 1
+                        ]);
                 }
             }
 
             DB::commit();
 
-            try {
-                if ($request->hasFile('image')) {
-                    $file = $request->file('image');
-                    $path = $this->convertToWebp(
-                        $file,
-                        $recipe->id,
-                        $this->userId
-                    );
+            /* =========================
+            * 画像アップロード（非同期）
+            * ========================= */
+            if ($request->hasFile('image')) {
+                $tmpPath = $request->file('image')->store('tmp/recipe_images');
 
-                    $recipe->update([
-                        'image_path' => $path,
-                    ]);
-                }
-            } catch (\Throwable $e) {
-                Log::error('webp変換失敗', [
-                    'recipe_id' => $recipe->id,
-                    'error' => $e->getMessage()
-                ]);
+                ConvertRecipeImageToWebp::dispatch(
+                    $tmpPath,
+                    $recipe->id,
+                    $this->userId
+                );
             }
 
-            return response()->json(['message' => 'レシピ保存完了'], 200);
+            return response()->json([
+                'message' => 'レシピ保存完了'
+            ], 200);
         } catch (\Exception $e) {
             DB::rollBack();
-            Log::error($e);
+            Log::error('recipe_post error', [
+                'error' => $e->getMessage(),
+            ]);
 
-            return response()->json(['error' => $e->getMessage()], 500);
+            return response()->json([
+                'error' => $e->getMessage()
+            ], 500);
         }
     }
 
@@ -492,57 +495,6 @@ class RecipeController extends Controller
             Log::error('menu_post error: ' . $e->getMessage());
 
             return response()->json(['error' => $e->getMessage()], 500);
-        }
-    }
-
-    private function convertToWebp($file, int $recipeId, int $userId): string
-    {
-        try {
-            $imagick = new Imagick();
-
-            $imagick->readImage($file->getRealPath());
-
-            // 多フレーム（HEIC / GIF）
-            if ($imagick->getNumberImages() > 1) {
-                $imagick = $imagick->mergeImageLayers(
-                    Imagick::LAYERMETHOD_FLATTEN
-                );
-            }
-
-            // 向き補正（iPhone必須）
-            $imagick->autoOrient();
-
-            // sRGB 固定
-            $imagick->setImageColorspace(Imagick::COLORSPACE_SRGB);
-
-            if (!$imagick->getImageAlphaChannel()) {
-                // 🔥 透明を潰す（重要）
-                $imagick->setImageBackgroundColor('white');
-                $imagick = $imagick->mergeImageLayers(Imagick::LAYERMETHOD_FLATTEN);
-            }
-
-            // メタデータ削除
-            $imagick->stripImage();
-
-            // WebP
-            $imagick->setImageFormat('webp');
-            $imagick->setOption('webp:method', '6');
-            $imagick->setImageCompressionQuality(80);
-
-            $path = "recipe_images/{$userId}/{$recipeId}.webp";
-            Storage::disk(config('filesystems.image_disk'))
-                ->put($path, $imagick->getImageBlob(), 'public');
-
-            $imagick->clear();
-            $imagick->destroy();
-
-            return $path;
-        } catch (\Throwable $e) {
-            Log::error('WebP変換エラー', [
-                'message' => $e->getMessage(),
-                'file' => $file->getClientOriginalName(),
-            ]);
-            throw $e;
         }
     }
 }
