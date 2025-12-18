@@ -32,14 +32,12 @@ class ConvertRecipeImageToWebp implements ShouldQueue
     public function handle(): void
     {
         try {
-            // tmp ファイル存在チェック
             if (!Storage::disk('local')->exists($this->tmpPath)) {
                 throw new \RuntimeException(
                     'tmp image not found: ' . $this->tmpPath
                 );
             }
 
-            // ★ Blob 読み込みは使わない（超重要）
             $fullPath = Storage::disk('local')->path($this->tmpPath);
 
             $imagick = new Imagick();
@@ -54,15 +52,8 @@ class ConvertRecipeImageToWebp implements ShouldQueue
                 );
             }
 
-            /**
-             * 向き補正
-             */
             $imagick->autoOrient();
 
-            /**
-             * ★ 先にリサイズ（最重要）
-             * スマホ写真は 4000px 超 → 処理激重
-             */
             $maxSize = 1280;
             if (
                 $imagick->getImageWidth() > $maxSize ||
@@ -77,30 +68,23 @@ class ConvertRecipeImageToWebp implements ShouldQueue
                 );
             }
 
-            /**
-             * WebP 変換
-             */
-            $imagick->stripImage(); // メタデータ削除
+            $imagick->stripImage();
             $imagick->setImageFormat('webp');
             $imagick->setOption('webp:method', '6');
-            $imagick->setImageCompressionQuality(75); // 80→75で速度UP
+            $imagick->setImageCompressionQuality(75);
 
             $path = "recipe_images/{$this->userId}/{$this->recipeId}.webp";
 
             Storage::disk(config('filesystems.image_disk'))
                 ->put($path, $imagick->getImageBlob(), 'public');
 
-            // DB 更新
             Recipe::where('id', $this->recipeId)
                 ->update(['image_path' => $path]);
 
-            // メモリ解放
             $imagick->clear();
             $imagick->destroy();
 
-            // tmp 削除
             Storage::disk('local')->delete($this->tmpPath);
-
         } catch (\Throwable $e) {
             Log::error('Recipe image job failed', [
                 'recipe_id' => $this->recipeId,
