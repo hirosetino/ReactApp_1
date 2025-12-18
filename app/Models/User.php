@@ -55,4 +55,9 @@ class User extends Authenticatable
     {
         return $this->hasMany(Recipe::class, 'users_id', 'id');
     }
+
+    public function category()
+    {
+        return $this->hasMany(Category::class, 'users_id', 'id');
+    }
 }

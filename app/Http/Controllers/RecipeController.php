@@ -37,7 +37,11 @@ class RecipeController extends Controller
                         $query->select('id', 'recipes_id', 'name', 'amount')
                             ->where('delete_flg', 0);
                     },
-                    'category:id,name'
+                    'category' => function ($query) {
+                        $query->select('id', 'name')
+                            ->where('users_id', $this->userId)
+                            ->where('delete_flg', 0);
+                    }
                 ])
                 ->where('users_id', $this->userId)
                 ->where('delete_flg', 0)
@@ -60,7 +64,11 @@ class RecipeController extends Controller
                         $query->select('id', 'recipes_id', 'name', 'amount')
                             ->where('delete_flg', 0);
                     },
-                    'category:id,name'
+                    'category' => function ($query) {
+                        $query->select('id', 'name')
+                            ->where('users_id', $this->userId)
+                            ->where('delete_flg', 0);
+                    }
                 ])
                 ->where('id', $id)
                 ->where('delete_flg', 0)
@@ -93,11 +101,15 @@ class RecipeController extends Controller
                 'image_path',
             ])
             ->with([
-                'category:id,name',
                 'ingredient' => function ($query) {
                     $query->select('id', 'recipes_id', 'name', 'amount')
                         ->where('delete_flg', 0);
                 },
+                'category' => function ($query) {
+                    $query->select('id', 'name')
+                        ->where('users_id', $this->userId)
+                        ->where('delete_flg', 0);
+                }
             ])
             ->where('users_id', $this->userId)
             ->where('delete_flg', 0)
@@ -302,10 +314,10 @@ class RecipeController extends Controller
         try {
             $categories = Category::query()
                 ->select('id', 'name')
-                ->where('m_categories.delete_flg', 0)
+                ->where('users_id', $this->userId)
+                ->where('delete_flg', 0)
                 ->whereHas('recipes', function ($q) {
-                    $q->where('users_id', $this->userId)
-                    ->where('delete_flg', 0);
+                    $q->where('delete_flg', 0);
                 })
                 ->get();
 
