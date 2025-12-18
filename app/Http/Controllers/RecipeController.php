@@ -143,6 +143,7 @@ class RecipeController extends Controller
     public function recipe_post(Request $request)
     {
         DB::beginTransaction();
+
         try {
             $data = $request->only([
                 'recipes_id',
