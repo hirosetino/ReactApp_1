@@ -38,11 +38,14 @@ class ConvertRecipeImageToWebp implements ShouldQueue
                 );
             }
 
-            $blob = Storage::disk('local')->get($this->tmpPath);
+            $fullPath = Storage::disk('local')->path($this->tmpPath);
 
             $imagick = new Imagick();
-            $imagick->readImageBlob($blob);
+            $imagick->readImage($fullPath);
 
+            /**
+             * 複数フレーム（GIF / HEIC）対策
+             */
             if ($imagick->getNumberImages() > 1) {
                 $imagick = $imagick->mergeImageLayers(
                     Imagick::LAYERMETHOD_FLATTEN
@@ -50,19 +53,25 @@ class ConvertRecipeImageToWebp implements ShouldQueue
             }
 
             $imagick->autoOrient();
-            $imagick->setImageColorspace(Imagick::COLORSPACE_SRGB);
 
-            if (!$imagick->getImageAlphaChannel()) {
-                $imagick->setImageBackgroundColor('white');
-                $imagick = $imagick->mergeImageLayers(
-                    Imagick::LAYERMETHOD_FLATTEN
+            $maxSize = 1280;
+            if (
+                $imagick->getImageWidth() > $maxSize ||
+                $imagick->getImageHeight() > $maxSize
+            ) {
+                $imagick->resizeImage(
+                    $maxSize,
+                    $maxSize,
+                    Imagick::FILTER_LANCZOS,
+                    1,
+                    true // アスペクト比維持
                 );
             }
 
             $imagick->stripImage();
             $imagick->setImageFormat('webp');
             $imagick->setOption('webp:method', '6');
-            $imagick->setImageCompressionQuality(80);
+            $imagick->setImageCompressionQuality(75);
 
             $path = "recipe_images/{$this->userId}/{$this->recipeId}.webp";
 
