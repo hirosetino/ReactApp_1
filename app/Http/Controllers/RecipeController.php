@@ -5,7 +5,6 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Log;
 
 use App\Jobs\ConvertRecipeImageToWebp;
@@ -144,7 +143,6 @@ class RecipeController extends Controller
     public function recipe_post(Request $request)
     {
         DB::beginTransaction();
-
         try {
             $data = $request->only([
                 'recipes_id',
@@ -155,12 +153,27 @@ class RecipeController extends Controller
             ]);
 
             $category_id = null;
-            if (!empty($data['category']) && $data['category'] !== 'null') {
-                $category_id = is_numeric($data['category'])
-                    ? $data['category']
-                    : Category::firstOrCreate([
-                        'name' => $data['category']
-                    ])->id;
+            if (isset($data['category']) && $data['category'] !== '' && $data['category'] !== 'null') {
+                if (ctype_digit((string) $data['category'])) {
+                    $category_id = (int) $data['category'];
+                } else {
+                    $category = Category::where('users_id', $this->userId)
+                        ->where('name', $data['category'])
+                        ->first();
+
+                    if ($category) {
+                        if ($category->delete_flg === 1) {
+                            $category->update(['delete_flg' => 0]);
+                        }
+                    } else {
+                        $category = Category::create([
+                            'users_id' => $this->userId,
+                            'name'     => $data['category'],
+                        ]);
+                    }
+
+                    $category_id = $category->id;
+                }
             }
 
             if (empty($data['recipes_id'])) {
@@ -192,6 +205,17 @@ class RecipeController extends Controller
                 $recipe = Recipe::where('id', $data['recipes_id'])
                     ->where('users_id', $this->userId)
                     ->firstOrFail();
+
+                if ($recipe->category_id && $recipe->category_id !== $category_id) {
+                    $count = Recipe::where('category_id', $recipe->category_id)
+                        ->where('delete_flg', 0)
+                        ->count();
+
+                    if ($count === 0) {
+                        Category::where('id', $recipe->category_id)
+                            ->update(['delete_flg' => 1]);
+                    }
+                }
 
                 $recipe->update([
                     'name'        => $data['name'],
@@ -402,7 +426,8 @@ class RecipeController extends Controller
                     $category_id = $categoryData['id'] ?? null;
 
                     if (!$category_id && !empty($categoryData['name'])) {
-                        $category = Category::create([
+                        $category = Category::firstOrCreate([
+                            'users_id' => $this->userId,
                             'name' => $recipeData['category']['name'],
                         ]);
                         $category_id = $category->id;
