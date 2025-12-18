@@ -1,3 +1,4 @@
+
 import React from 'react';
 
 import '../../../css/calendar.css';
@@ -5,6 +6,7 @@ import '../../../css/calendar.css';
 export default function DateArea({
     data = [],
     date,
+    cellClass = "calendar-cell",
     backGround = "",
     className = "",
     onClick,
@@ -13,7 +15,7 @@ export default function DateArea({
 }) {
     return (
         <div
-            className={`calendar-cell md:min-h-[8rem] min-h-[4rem] ${backGround}`}
+            className={`${cellClass} md:min-h-[8rem] min-h-[4rem] ${backGround}`}
             onClick={onClick}
         >
             <p className={`hidden md:block pl-2 ${className}`}>{date}</p>

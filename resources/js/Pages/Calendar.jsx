@@ -17,6 +17,8 @@ import RecipeModal from '@/Components/RecipeModal';
 dayjs.locale('ja');
 
 const Calendar = () => {
+    const [isMobile, setIsMobile] = useState(false);
+
     const today = dayjs();
     const [currentYear, setCurrentYear] = useState(today.year());
     const [currentMonth, setCurrentMonth] = useState(today.month() + 1);
@@ -55,6 +57,13 @@ const Calendar = () => {
         vertical: 'top',
         horizontal: 'center',
     });
+
+    useEffect(() => {
+        const handleResize = () => setIsMobile(window.innerWidth < 900);
+        handleResize();
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
+    }, []);
 
     // calendar helpers
     const weekday = ["日", "月", "火", "水", "木", "金", "土"];
@@ -487,6 +496,7 @@ const Calendar = () => {
                                 <DateArea
                                     key={index}
                                     date={dayjs(dayObj.date).date()}
+                                    cellClass={isMobile ? 'calendar-cell-mobile' : 'calendar-cell'}
                                     backGround={listArray.includes(dayObj.date) ? 'bg-yellow-100' : backGround}
                                     className={className}
                                     onClick={() => {
