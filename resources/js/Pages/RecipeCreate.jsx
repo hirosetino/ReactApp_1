@@ -175,16 +175,9 @@ const RecipeCreate = () => {
                 formData.append(`ingredients[${index}][amount]`, ing.amount);
             });
 
-            await axios.post('/recipe/create_post', formData, {
+            router.post('/recipe/create_post', formData, {
                 timeout: 60000,
-            });
-
-            setSnackbar({
-                open: true,
-                message: '登録に成功しました',
-                severity: 'success',
-                vertical: 'top',
-                horizontal: 'center'
+                onSuccess: () => {},
             });
         } catch (err) {
             console.error('登録エラー', err);

@@ -17,9 +17,9 @@ Route::get('/', function () {
 });
 
 Route::middleware('auth')->group(function () {
-    Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
-    Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
-    Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
+    // Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
+    // Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
+    // Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 
     Route::get('/calendar', function() {
         return Inertia::render('Calendar');
@@ -29,7 +29,7 @@ Route::middleware('auth')->group(function () {
 
     Route::get('/recipe', function() {
         return Inertia::render('Recipe');
-    });
+    })->name('recipe.index');
     Route::get('/get_recipes', [RecipeController::class, 'get_recipes']);
     Route::get('/get_recipes_paginate', [RecipeController::class, 'get_recipes_paginate']);
     Route::get('/get_categories', [RecipeController::class, 'get_categories']);

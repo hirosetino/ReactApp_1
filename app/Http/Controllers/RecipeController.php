@@ -276,9 +276,9 @@ class RecipeController extends Controller
                 );
             }
 
-            return response()->json([
-                'message' => 'レシピ保存完了'
-            ], 200);
+            return redirect()
+                ->route('recipe.index')
+                ->with('success', '登録に成功しました');
         } catch (\Exception $e) {
             DB::rollBack();
             Log::error('recipe_post error', [
