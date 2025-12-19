@@ -155,43 +155,37 @@ const RecipeCreate = () => {
             return;
         }
 
-        try {
-            setIsSubmitting(true);
+        const formData = new FormData();
+        const category = selectedCategory?.id == null ? inputValue : selectedCategory?.id;
 
-            const formData = new FormData();
-            const category = selectedCategory?.id == null ? inputValue : selectedCategory?.id;
+        formData.append('recipes_id', recipeData.recipes_id || '');
+        formData.append('name', recipeData.name || '');
+        formData.append('category', category || null);
+        formData.append('url', recipeData.url || '');
 
-            formData.append('recipes_id', recipeData.recipes_id || '');
-            formData.append('name', recipeData.name || '');
-            formData.append('category', category || null);
-            formData.append('url', recipeData.url || '');
-
-            if (recipeData.image_path instanceof File) {
-                formData.append('image', recipeData.image_path);
-            }
-
-            recipeData.ingredients.forEach((ing, index) => {
-                formData.append(`ingredients[${index}][name]`, ing.name);
-                formData.append(`ingredients[${index}][amount]`, ing.amount);
-            });
-
-            router.post('/recipe/create_post', formData, {
-                timeout: 60000,
-                onSuccess: () => {},
-            });
-        } catch (err) {
-            console.error('登録エラー', err);
-
-            setSnackbar({
-                open: true,
-                message: '登録に失敗しました',
-                severity: 'error',
-                vertical: 'top',
-                horizontal: 'center'
-            });
-        } finally {
-            setIsSubmitting(false);
+        if (recipeData.image_path instanceof File) {
+            formData.append('image', recipeData.image_path);
         }
+
+        recipeData.ingredients.forEach((ing, index) => {
+            formData.append(`ingredients[${index}][name]`, ing.name);
+            formData.append(`ingredients[${index}][amount]`, ing.amount);
+        });
+
+        router.post('/recipe/create_post', formData, {
+            timeout: 60000,
+            onStart: () => setIsSubmitting(true),
+            onFinish: () => setIsSubmitting(false),
+            onError: () => {
+                setSnackbar({
+                    open: true,
+                    message: '登録に失敗しました',
+                    severity: 'error',
+                    vertical: 'top',
+                    horizontal: 'center'
+                });
+            },
+        });
     };
 
     return (
