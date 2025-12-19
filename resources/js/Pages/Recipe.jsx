@@ -1,3 +1,4 @@
+import { usePage } from '@inertiajs/react';
 import { useEffect, useState } from 'react';
 import axios from 'axios';
 
@@ -35,6 +36,8 @@ import RecipeCard from '@/Components/RecipeCard';
 import RecipeDeleteModal from '@/Components/RecipeDeleteModal';
 
 const Recipe = () => {
+    const { flash = {} } = usePage().props;
+
     const theme = useTheme();
     const isMobile = useMediaQuery(theme.breakpoints.down('md'));
 
@@ -64,6 +67,19 @@ const Recipe = () => {
         vertical: 'top',
         horizontal: 'center',
     });
+
+    useEffect(() => {
+        if (flash.success) {
+            setSnackbar(prev => ({
+                ...prev,
+                open: true,
+                message: flash.success,
+                severity: 'success',
+                vertical: 'top',
+                horizontal: 'center',
+            }));
+        }
+    }, [flash.success]);
 
     // ページごとにレシピ取得（1ページ10件）
     const fetchRecipes = async () => {

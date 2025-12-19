@@ -195,8 +195,14 @@ const Calendar = () => {
 
         const str = raw.trim();
 
+        // 数字のみ（1 / 1.5）
+        let m = str.match(/^(\d+(?:\.\d+)?)$/);
+        if (m) {
+            return { value: parseFloat(m[1]), unit: '' };
+        }
+
         // 1.5g / 1.5 g
-        let m = str.match(/^(\d+(?:\.\d+)?)[\s]*(.+)$/);
+        m = str.match(/^(\d+(?:\.\d+)?)[\s]*(.+)$/);
         if (m) {
             return { value: parseFloat(m[1]), unit: m[2].trim() };
         }
