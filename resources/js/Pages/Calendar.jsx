@@ -192,37 +192,65 @@ const Calendar = () => {
     // create shopping list from dailyRecipes
     const parseAmount = (raw) => {
         if (!raw || typeof raw !== 'string') return null;
+
         const str = raw.trim();
+
+        // 1.5g / 1.5 g
         let m = str.match(/^(\d+(?:\.\d+)?)[\s]*(.+)$/);
-        if (m) return { value: parseFloat(m[1]), unit: m[2].trim() };
+        if (m) {
+            return { value: parseFloat(m[1]), unit: m[2].trim() };
+        }
+
+        // g1.5 / g 1.5
         m = str.match(/^(.+?)[\s]*(\d+(?:\.\d+)?)$/);
-        if (m) return { value: parseFloat(m[2]), unit: m[1].trim() };
+        if (m) {
+            return { value: parseFloat(m[2]), unit: m[1].trim() };
+        }
+
         return null;
     };
 
     const createList = () => {
         const mergedIngredients = {};
+
         listArray.forEach(date => {
             const day = dailyRecipes[date];
             if (!day) return;
-            [1,2,3].forEach(t => {
+
+            [1, 2, 3].forEach(t => {
                 (day[t] || []).forEach(recipe => {
                     (recipe.ingredient || []).forEach(({ name, amount }) => {
                         const parsed = parseAmount(amount);
                         if (!parsed) return;
+
                         const { value, unit } = parsed;
-                        if (!mergedIngredients[name]) mergedIngredients[name] = {};
-                        if (!mergedIngredients[name][unit]) mergedIngredients[name][unit] = 0;
+
+                        if (!mergedIngredients[name]) {
+                            mergedIngredients[name] = {};
+                        }
+                        if (!mergedIngredients[name][unit]) {
+                            mergedIngredients[name][unit] = 0;
+                        }
+
                         mergedIngredients[name][unit] += value;
                     });
                 });
             });
         });
 
-        const finalList = Object.entries(mergedIngredients).map(([name, unitMap]) => {
-            const amountStr = Object.entries(unitMap).map(([unit, value]) => `${value}${unit}`).join('、');
-            return { name, amount: amountStr };
-        });
+        const finalList = Object.entries(mergedIngredients).map(
+            ([name, unitMap]) => {
+                const amountStr = Object.entries(unitMap)
+                    .map(([unit, value]) => {
+                        // 小数誤差対策（最大2桁）
+                        const rounded = Math.round(value * 100) / 100;
+                        return `${rounded}${unit}`;
+                    })
+                    .join('、');
+
+                return { name, amount: amountStr };
+            }
+        );
 
         setIngredientsSumList(finalList);
         setMode(false);
