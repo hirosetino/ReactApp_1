@@ -464,22 +464,60 @@ const Calendar = () => {
                         </LocalizationProvider>
                     </div>
 
-                    <div className="flex my-[16px] leading-[38px]">
-                        {mode ? <p className="mr-[8px]">日付を選択</p>
-                        : <Button
-                            variant="contained"
-                            sx={{ backgroundColor: "var(--color-orange)" }}
-                            onClick={() => changeMode()}
-                        >リスト作成</Button>}
-
-                        {mode && <Button
-                            variant="outlined"
-                            sx={{
-                                    borderColor: "var(--color-orange)",
-                                    color: "var(--color-orange)"
+                    <div
+                        style={{
+                            position: 'fixed',
+                            bottom: 24,
+                            right: 24,
+                            zIndex: 10, // Dialog / Backdrop より下にする
+                            display: 'flex',
+                            gap: 8,
+                        }}
+                    >
+                        {!mode && (
+                            <Button
+                                variant="contained"
+                                sx={{
+                                    backgroundColor: "var(--color-orange)",
+                                    borderRadius: 999,
+                                    px: 3,
                                 }}
-                            onClick={() => createList()}
-                        >確定</Button>}
+                                onClick={changeMode}
+                            >
+                                リスト作成
+                            </Button>
+                        )}
+
+                        {mode && (
+                            <>
+                                <Button
+                                    variant="outlined"
+                                    sx={{
+                                        borderColor: "var(--color-orange)",
+                                        color: "var(--color-orange)",
+                                        borderRadius: 999,
+                                        px: 3,
+                                        backgroundColor: "#fff",
+                                    }}
+                                    onClick={createList}
+                                >
+                                    確定
+                                </Button>
+
+                                <Button
+                                    variant="outlined"
+                                    color="inherit"
+                                    sx={{
+                                        borderRadius: 999,
+                                        px: 3,
+                                        backgroundColor: "#fff",
+                                    }}
+                                    onClick={changeMode}
+                                >
+                                    キャンセル
+                                </Button>
+                            </>
+                        )}
                     </div>
 
                     <div className="hidden md:grid grid-cols-7 text-center border border-gray-300 rounded-t-md">
