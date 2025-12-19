@@ -11,15 +11,24 @@ import {
     ListItemButton,
     Checkbox,
     Button,
+    TextField,
+    Stack,
 } from "@mui/material";
 
 const IngredientsListModal = ({ ingredientsSumList, show, onClose }) => {
     const [checked, setChecked] = useState([]);
+    const [list, setList] = useState([]);
 
-    // show = true になったタイミングで checked を初期化
+    const [newName, setNewName] = useState("");
+    const [newAmount, setNewAmount] = useState("");
+
+    // 初期化
     useEffect(() => {
         if (show) {
+            setList(ingredientsSumList);
             setChecked(ingredientsSumList.map(() => false));
+            setNewName("");
+            setNewAmount("");
         }
     }, [show, ingredientsSumList]);
 
@@ -29,6 +38,16 @@ const IngredientsListModal = ({ ingredientsSumList, show, onClose }) => {
             updated[index] = !updated[index];
             return updated;
         });
+    };
+
+    const handleAdd = () => {
+        if (!newName.trim()) return;
+
+        setList((prev) => [...prev, { name: newName, amount: newAmount }]);
+        setChecked((prev) => [...prev, false]);
+
+        setNewName("");
+        setNewAmount("");
     };
 
     return (
@@ -43,23 +62,23 @@ const IngredientsListModal = ({ ingredientsSumList, show, onClose }) => {
             <DialogTitle>リスト</DialogTitle>
 
             <DialogContent dividers sx={{ py: 0 }}>
-                {ingredientsSumList.length > 0 ? (
+                {list.length > 0 ? (
                     <List sx={{ py: 0 }}>
-                        {ingredientsSumList.map((item, index) => (
+                        {list.map((item, index) => (
                             <ListItem key={index} divider disablePadding>
                                 <ListItemButton onClick={() => handleToggle(index)}>
                                     <ListItemIcon>
                                         <Checkbox
                                             edge="start"
                                             checked={checked[index] || false}
-                                            tabIndex={-1}
                                             disableRipple
                                             sx={{
-                                                "&.Mui-checked": { color: "var(--color-orange)" }
+                                                "&.Mui-checked": {
+                                                    color: "var(--color-orange)",
+                                                },
                                             }}
                                         />
                                     </ListItemIcon>
-
                                     <ListItemText
                                         primary={item.name}
                                         secondary={item.amount}
@@ -71,6 +90,31 @@ const IngredientsListModal = ({ ingredientsSumList, show, onClose }) => {
                 ) : (
                     <p className="my-8">必要食材がありません</p>
                 )}
+
+                {/* 追加フォーム */}
+                <Stack direction="row" spacing={1} sx={{ my: 2 }}>
+                    <TextField
+                        label="材料名"
+                        size="small"
+                        fullWidth
+                        value={newName}
+                        onChange={(e) => setNewName(e.target.value)}
+                    />
+                    <TextField
+                        label="量"
+                        size="small"
+                        sx={{ width: 200 }}
+                        value={newAmount}
+                        onChange={(e) => setNewAmount(e.target.value)}
+                    />
+                    <Button
+                        variant="contained"
+                        onClick={handleAdd}
+                        sx={{ bgcolor: "var(--color-orange)" }}
+                    >
+                        追加
+                    </Button>
+                </Stack>
             </DialogContent>
 
             <DialogActions>
