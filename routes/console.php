@@ -11,3 +11,7 @@ Artisan::command('inspire', function () {
 Schedule::command('batch:purge-soft-deleted')
     ->dailyAt('03:00')
     ->name('purge_soft_deleted_data');
+
+Schedule::command('batch:supabase-keep-alive')
+    ->everySixHours()
+    ->name('supabase_keep_alive');
