@@ -60,4 +60,9 @@ class User extends Authenticatable
     {
         return $this->hasMany(Category::class, 'users_id', 'id');
     }
+
+    public function lists()
+    {
+        return $this->hasOne(Lists::class, 'users_id', 'id');
+    }
 }

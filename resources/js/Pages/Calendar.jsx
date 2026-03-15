@@ -28,7 +28,6 @@ const Calendar = () => {
     const [ingredientsSumList, setIngredientsSumList] = useState([]);
     const [showIngredientsModal, setShowIngredientsModal] = useState(false);
 
-    // modal / selected date
     const [showModal, setShowModal] = useState(false);
     const [selectedDate, setSelectedDate] = useState(dayjs(`${currentYear}-${String(currentMonth).padStart(2, '0')}-01`));
 
@@ -37,11 +36,8 @@ const Calendar = () => {
 
     const [categories, setCategories] = useState([]);
 
-    // recipe library (optional, used for selecting existing recipes)
     const [recipes, setRecipes] = useState([]);
 
-    // unified dailyRecipes structure (A方式)
-    // dailyRecipes = { "YYYY-MM-DD": { 1: [recipeObj, ...], 2: [...], 3: [...] }, ... }
     const [dailyRecipes, setDailyRecipes] = useState({});
 
     const [refreshMenus, setRefreshMenus] = useState(false);
@@ -65,7 +61,6 @@ const Calendar = () => {
         return () => window.removeEventListener('resize', handleResize);
     }, []);
 
-    // calendar helpers
     const weekday = ["日", "月", "火", "水", "木", "金", "土"];
     const startWeek = 1;
     const rotatedWeekday = [...weekday.slice(startWeek), ...weekday.slice(0, startWeek)];
@@ -126,8 +121,8 @@ const Calendar = () => {
     // fetch recipe library (optional)
     useEffect(() => {
         axios.get('/get_recipes')
-        .then(res => setRecipes(res.data.recipes || []))
-        .catch(err => console.error('get_recipes error', err));
+            .then(res => setRecipes(res.data.recipes || []))
+            .catch(err => console.error('get_recipes error', err));
     }, [refreshMenus]);
 
     // fetch menus (API returns rows: 1 row = 1 menu/recipe)
@@ -138,37 +133,37 @@ const Calendar = () => {
         axios.get('/calendar/get_menus', {
             params: { startDate: startDate, endDate: endDate }
         })
-        .then(res => {
-            const fetchedMenus = res.data.menus || [];
-            // build dailyRecipes
-            const next = {};
-            fetchedMenus.forEach(menu => {
-                // menu: { date, time_zone_type, memo, recipes_id, recipe: { id, name, ingredient: [...] } }
-                const dateKey = menu.date;
-                const time = Number(menu.time_zone_type) || 1;
+            .then(res => {
+                const fetchedMenus = res.data.menus || [];
+                // build dailyRecipes
+                const next = {};
+                fetchedMenus.forEach(menu => {
+                    // menu: { date, time_zone_type, memo, recipes_id, recipe: { id, name, ingredient: [...] } }
+                    const dateKey = menu.date;
+                    const time = Number(menu.time_zone_type) || 1;
 
-                if (!next[dateKey]) next[dateKey] = { 1: [], 2: [], 3: [] };
-                // transform to front recipe structure
-                const recipeObj = {
-                    recipes_id: menu.recipes_id ?? (menu.recipe?.id ?? null),
-                    name: menu.recipe?.name ?? '',
-                    category: menu.recipe?.category ?? null,
-                    url: menu.recipe?.url ?? '', // backend doesn't return url, left empty
-                    memo: menu.memo ?? '',
-                    ingredient: (menu.recipe?.ingredient || []).map(ing => ({
-                        // backend ingredient has { name, amount }
-                        name: ing.name ?? '',
-                        amount: ing.amount ?? '',
-                    })),
-                    isModified: false,
-                    isSelectedFromDropdown: false,
-                };
-                next[dateKey][time].push(recipeObj);
-            });
-            setDailyRecipes(next);
-        })
-        .catch(err => console.error('get_menus error', err))
-        .finally(() => setRefreshMenus(false));
+                    if (!next[dateKey]) next[dateKey] = { 1: [], 2: [], 3: [] };
+                    // transform to front recipe structure
+                    const recipeObj = {
+                        recipes_id: menu.recipes_id ?? (menu.recipe?.id ?? null),
+                        name: menu.recipe?.name ?? '',
+                        category: menu.recipe?.category ?? null,
+                        url: menu.recipe?.url ?? '', // backend doesn't return url, left empty
+                        memo: menu.memo ?? '',
+                        ingredient: (menu.recipe?.ingredient || []).map(ing => ({
+                            // backend ingredient has { name, amount }
+                            name: ing.name ?? '',
+                            amount: ing.amount ?? '',
+                        })),
+                        isModified: false,
+                        isSelectedFromDropdown: false,
+                    };
+                    next[dateKey][time].push(recipeObj);
+                });
+                setDailyRecipes(next);
+            })
+            .catch(err => console.error('get_menus error', err))
+            .finally(() => setRefreshMenus(false));
         const formattedDate = `${currentYear}年${currentMonth}月`;
     }, [currentYear, currentMonth, refreshMenus]);
 
@@ -263,6 +258,49 @@ const Calendar = () => {
         setShowIngredientsModal(true);
         setListArray([]);
     };
+
+    const saveIngredientsList = async (list) => {
+        try {
+            const payload = {
+                lists: list,
+            };
+
+            await axios.post('/lists_post', payload);
+
+            setSnackbar({
+                open: true,
+                message: '保存に成功しました',
+                severity: 'success',
+                vertical: 'top',
+                horizontal: 'center'
+            });
+            setShowIngredientsModal(false);
+        } catch (err) {
+            console.error('保存エラー', err);
+            setSnackbar({
+                open: true,
+                message: '保存に失敗しました',
+                severity: 'error',
+                vertical: 'top',
+                horizontal: 'center'
+            });
+        }
+    };
+
+    const getLists = () => {
+        axios.get('/get_lists')
+            .then((res) => {
+                const obj = res.data.lists ?? res.data;
+
+                setIngredientsSumList(obj);
+                setMode(false);
+                setShowIngredientsModal(true);
+                setListArray([]);
+            })
+            .catch((err) => {
+                console.error('リスト取得エラー:', err);
+            });
+    }
 
     // handle register (POST multiple recipes)
     const handleRegister = async () => {
@@ -401,7 +439,6 @@ const Calendar = () => {
             });
             setShowModal(false);
             setRefreshMenus(true);
-
         } catch (err) {
             console.error('登録エラー', err);
             setSnackbar({
@@ -433,21 +470,21 @@ const Calendar = () => {
                                     value={selectedDate}
                                     onChange={(newValue) => {
                                         if (newValue?.isValid?.()) {
-                                        setSelectedDate(newValue);
-                                        setCurrentYear(newValue.year());
-                                        setCurrentMonth(newValue.month() + 1);
+                                            setSelectedDate(newValue);
+                                            setCurrentYear(newValue.year());
+                                            setCurrentMonth(newValue.month() + 1);
                                         }
                                     }}
                                     slotProps={{
                                         textField: {
-                                        sx: {
-                                            opacity: 0,
-                                            pointerEvents: "none",
-                                            position: "absolute",
-                                            inset: 0,
-                                            width: "100%",
-                                            height: "100%",
-                                        },
+                                            sx: {
+                                                opacity: 0,
+                                                pointerEvents: "none",
+                                                position: "absolute",
+                                                inset: 0,
+                                                width: "100%",
+                                                height: "100%",
+                                            },
                                         },
                                     }}
                                     ref={pickerRef}
@@ -475,17 +512,31 @@ const Calendar = () => {
                         }}
                     >
                         {!mode && (
-                            <Button
-                                variant="contained"
-                                sx={{
-                                    backgroundColor: "var(--color-orange)",
-                                    borderRadius: 999,
-                                    px: 3,
-                                }}
-                                onClick={changeMode}
-                            >
-                                リスト作成
-                            </Button>
+                            <>
+                                <Button
+                                    variant="contained"
+                                    sx={{
+                                        backgroundColor: "var(--color-orange)",
+                                        borderRadius: 999,
+                                        px: 3,
+                                    }}
+                                    onClick={changeMode}
+                                >
+                                    リスト作成
+                                </Button>
+                                <Button
+                                    variant="outlined"
+                                    sx={{
+                                        borderColor: "var(--color-orange)",
+                                        color: "var(--color-orange)",
+                                        backgroundColor: "#fff",
+                                        borderRadius: 999
+                                    }}
+                                    onClick={getLists}
+                                >
+                                    リスト呼び出し
+                                </Button>
+                            </>
                         )}
 
                         {mode && (
@@ -522,7 +573,7 @@ const Calendar = () => {
 
                     <div className="hidden md:grid grid-cols-7 text-center border border-gray-300 rounded-t-md">
                         {rotatedWeekday.map((day, index) => {
-                            const className = `${day === '日' ? 'text-red-500' : day === '土' ? 'text-blue-500' : '' }`;
+                            const className = `${day === '日' ? 'text-red-500' : day === '土' ? 'text-blue-500' : ''}`;
                             return (
                                 <WeekArea key={index} week={day} className={className} />
                             )
@@ -532,46 +583,46 @@ const Calendar = () => {
 
                     <div>
                         <div className="grid md:grid-cols-7 grid-cols-1 border-l border-gray-300">
-                        {days.map((dayObj, index) => {
-                            const todayStr = dayjs().format('YYYY-MM-DD');
-                            const isToday = dayObj.date === todayStr;
-                            const backGround = `${isToday ? 'bg-today' : '' }`;
-                            const className = `${dayObj.current ? '' : 'text-gray-400'}`;
+                            {days.map((dayObj, index) => {
+                                const todayStr = dayjs().format('YYYY-MM-DD');
+                                const isToday = dayObj.date === todayStr;
+                                const backGround = `${isToday ? 'bg-today' : ''}`;
+                                const className = `${dayObj.current ? '' : 'text-gray-400'}`;
 
-                            // show first recipe names (join up to 3)
-                            const dayRecipes = dailyRecipes[dayObj.date] ?? {1:[],2:[],3:[]};
+                                // show first recipe names (join up to 3)
+                                const dayRecipes = dailyRecipes[dayObj.date] ?? { 1: [], 2: [], 3: [] };
 
-                            // 朝 (1)
-                            const morningRecipe = (dayRecipes[1] ?? [])
-                                .map(r => r.name)
-                                .filter(Boolean)
-                                .join(' / ');
+                                // 朝 (1)
+                                const morningRecipe = (dayRecipes[1] ?? [])
+                                    .map(r => r.name)
+                                    .filter(Boolean)
+                                    .join(' / ');
 
-                            // 昼 (2)
-                            const afternoonRecipe = (dayRecipes[2] ?? [])
-                                .map(r => r.name)
-                                .filter(Boolean)
-                                .join(' / ');
+                                // 昼 (2)
+                                const afternoonRecipe = (dayRecipes[2] ?? [])
+                                    .map(r => r.name)
+                                    .filter(Boolean)
+                                    .join(' / ');
 
-                            // 夜 (3)
-                            const eveningRecipe = (dayRecipes[3] ?? [])
-                                .map(r => r.name)
-                                .filter(Boolean)
-                                .join(' / ');
+                                // 夜 (3)
+                                const eveningRecipe = (dayRecipes[3] ?? [])
+                                    .map(r => r.name)
+                                    .filter(Boolean)
+                                    .join(' / ');
 
-                            const weekdayLabel = dayjs(dayObj.date).format("dd");
-                            const classNameMobile = `${weekdayLabel === '日' ? 'text-red-500' : weekdayLabel === '土' ? 'text-blue-500' : 'text-gray-500' }`;
+                                const weekdayLabel = dayjs(dayObj.date).format("dd");
+                                const classNameMobile = `${weekdayLabel === '日' ? 'text-red-500' : weekdayLabel === '土' ? 'text-blue-500' : 'text-gray-500'}`;
 
-                            const tagBase = "my-[4px] text-xs px-2 py-0.5 rounded-full font-medium";
+                                const tagBase = "my-[4px] text-xs px-2 py-0.5 rounded-full font-medium";
 
-                            return (
-                                <DateArea
-                                    key={index}
-                                    date={dayjs(dayObj.date).date()}
-                                    cellClass={isMobile ? 'calendar-cell-mobile' : 'calendar-cell'}
-                                    backGround={listArray.includes(dayObj.date) ? 'bg-yellow-100' : backGround}
-                                    className={className}
-                                    onClick={() => {
+                                return (
+                                    <DateArea
+                                        key={index}
+                                        date={dayjs(dayObj.date).date()}
+                                        cellClass={isMobile ? 'calendar-cell-mobile' : 'calendar-cell'}
+                                        backGround={listArray.includes(dayObj.date) ? 'bg-yellow-100' : backGround}
+                                        className={className}
+                                        onClick={() => {
                                             const selected = dayjs(dayObj.date);
                                             setSelectedDate(selected);
                                             if (mode) {
@@ -581,93 +632,93 @@ const Calendar = () => {
                                                 setTabValue(1);
                                             }
                                         }
-                                    }
-                                >
-                                    {/* 📱 スマホ版：曜日＋日付 + レシピ */}
-                                    <div className="md:hidden m-[4px]">
-                                        <div className="flex items-center gap-1 mb-1">
-                                            <span className={`text-sm ${classNameMobile}`}>{weekdayLabel}</span>
-                                            <span className={`text-md ${className}`}>{dayjs(dayObj.date).date()}</span>
+                                        }
+                                    >
+                                        {/* 📱 スマホ版：曜日＋日付 + レシピ */}
+                                        <div className="md:hidden m-[4px]">
+                                            <div className="flex items-center gap-1 mb-1">
+                                                <span className={`text-sm ${classNameMobile}`}>{weekdayLabel}</span>
+                                                <span className={`text-md ${className}`}>{dayjs(dayObj.date).date()}</span>
+                                            </div>
+
+                                            {morningRecipe && (
+                                                <div
+                                                    className={tagBase}
+                                                    style={{
+                                                        backgroundColor: "var(--morning-bg)",
+                                                        color: "var(--morning-text)",
+                                                    }}
+                                                >
+                                                    朝 {morningRecipe}
+                                                </div>
+                                            )}
+
+                                            {afternoonRecipe && (
+                                                <div
+                                                    className={tagBase}
+                                                    style={{
+                                                        backgroundColor: "var(--lunch-bg)",
+                                                        color: "var(--lunch-text)",
+                                                    }}
+                                                >
+                                                    昼 {afternoonRecipe}
+                                                </div>
+                                            )}
+
+                                            {eveningRecipe && (
+                                                <div
+                                                    className={tagBase}
+                                                    style={{
+                                                        backgroundColor: "var(--dinner-bg)",
+                                                        color: "var(--dinner-text)",
+                                                    }}
+                                                >
+                                                    夜 {eveningRecipe}
+                                                </div>
+                                            )}
                                         </div>
 
-                                        {morningRecipe && (
-                                            <div
-                                                className={tagBase}
-                                                style={{
-                                                backgroundColor: "var(--morning-bg)",
-                                                color: "var(--morning-text)",
-                                                }}
-                                            >
-                                                朝 {morningRecipe}
-                                            </div>
-                                        )}
+                                        {/* 🖥 PC版：今までどおり */}
+                                        <div className="hidden md:block m-[4px]">
+                                            {morningRecipe && (
+                                                <div
+                                                    className={tagBase}
+                                                    style={{
+                                                        backgroundColor: "var(--morning-bg)",
+                                                        color: "var(--morning-text)",
+                                                    }}
+                                                >
+                                                    朝 {morningRecipe}
+                                                </div>
+                                            )}
 
-                                        {afternoonRecipe && (
-                                            <div
-                                                className={tagBase}
-                                                style={{
-                                                backgroundColor: "var(--lunch-bg)",
-                                                color: "var(--lunch-text)",
-                                                }}
-                                            >
-                                                昼 {afternoonRecipe}
-                                            </div>
-                                        )}
+                                            {afternoonRecipe && (
+                                                <div
+                                                    className={tagBase}
+                                                    style={{
+                                                        backgroundColor: "var(--lunch-bg)",
+                                                        color: "var(--lunch-text)",
+                                                    }}
+                                                >
+                                                    昼 {afternoonRecipe}
+                                                </div>
+                                            )}
 
-                                        {eveningRecipe && (
-                                            <div
-                                                className={tagBase}
-                                                style={{
-                                                backgroundColor: "var(--dinner-bg)",
-                                                color: "var(--dinner-text)",
-                                                }}
-                                            >
-                                                夜 {eveningRecipe}
-                                            </div>
-                                        )}
-                                    </div>
-
-                                    {/* 🖥 PC版：今までどおり */}
-                                    <div className="hidden md:block m-[4px]">
-                                        {morningRecipe && (
-                                            <div
-                                                className={tagBase}
-                                                style={{
-                                                backgroundColor: "var(--morning-bg)",
-                                                color: "var(--morning-text)",
-                                                }}
-                                            >
-                                                朝 {morningRecipe}
-                                            </div>
-                                        )}
-
-                                        {afternoonRecipe && (
-                                            <div
-                                                className={tagBase}
-                                                style={{
-                                                backgroundColor: "var(--lunch-bg)",
-                                                color: "var(--lunch-text)",
-                                                }}
-                                            >
-                                                昼 {afternoonRecipe}
-                                            </div>
-                                        )}
-
-                                        {eveningRecipe && (
-                                            <div
-                                                className={tagBase}
-                                                style={{
-                                                backgroundColor: "var(--dinner-bg)",
-                                                color: "var(--dinner-text)",
-                                                }}
-                                            >
-                                                夜 {eveningRecipe}
-                                            </div>
-                                        )}
-                                    </div>
-                                </DateArea>
-                            );
-                        })}
+                                            {eveningRecipe && (
+                                                <div
+                                                    className={tagBase}
+                                                    style={{
+                                                        backgroundColor: "var(--dinner-bg)",
+                                                        color: "var(--dinner-text)",
+                                                    }}
+                                                >
+                                                    夜 {eveningRecipe}
+                                                </div>
+                                            )}
+                                        </div>
+                                    </DateArea>
+                                );
+                            })}
                         </div>
                     </div>
                 </>
@@ -677,6 +728,7 @@ const Calendar = () => {
                 ingredientsSumList={ingredientsSumList}
                 show={showIngredientsModal}
                 onClose={() => setShowIngredientsModal(false)}
+                onSave={saveIngredientsList}
             />
 
             <RecipeModal
