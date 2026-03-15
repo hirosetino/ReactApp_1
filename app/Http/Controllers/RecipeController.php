@@ -12,6 +12,7 @@ use App\Models\Recipe;
 use App\Models\Ingredient;
 use App\Models\Category;
 use App\Models\Menu;
+use App\Models\Lists;
 
 class RecipeController extends Controller
 {
@@ -302,8 +303,8 @@ class RecipeController extends Controller
             $favorite_flg = $recipe->favorite_flg === 0 ? 1 : 0;
 
             $recipe->update([
-                    'favorite_flg' => $favorite_flg,
-                ]);
+                'favorite_flg' => $favorite_flg,
+            ]);
 
             return response()->json(['message' => 'お気に入り処理完了'], 200);
         } catch (\Exception $e) {
@@ -364,15 +365,15 @@ class RecipeController extends Controller
 
             $menus = Menu::query()
                 ->with([
-                    'recipe' => function($query) {
+                    'recipe' => function ($query) {
                         $query->select('id', 'users_id', 'category_id', 'name', 'url')
                             ->where('delete_flg', 0);
                     },
-                    'recipe.ingredient' => function($query) {
+                    'recipe.ingredient' => function ($query) {
                         $query->select('id', 'recipes_id', 'name', 'amount')
                             ->where('delete_flg', 0);
                     },
-                    'recipe.category' => function($query) {
+                    'recipe.category' => function ($query) {
                         $query->select('id', 'name');
                     },
                 ])
@@ -532,6 +533,48 @@ class RecipeController extends Controller
             DB::rollBack();
             Log::error('menu_post error: ' . $e->getMessage());
 
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
+    }
+
+    public function get_lists(Request $request)
+    {
+        $lists = Lists::query()
+            ->select('id', 'name', 'amount')
+            ->where('users_id', $this->userId)
+            ->where('delete_flg', 0)
+            ->get();
+
+        if ($lists->isEmpty()) $lists = [];
+
+        return response()->json(['lists' => $lists]);
+    }
+
+    public function lists_post(Request $request)
+    {
+        $lists = $request->input('lists', []);
+
+        try {
+            DB::transaction(function () use ($lists) {
+                Lists::where('users_id', $this->userId)
+                    ->update(['delete_flg' => 1]);
+
+                $insertData = collect($lists)->map(function ($item) {
+                    return [
+                        'users_id' => $this->userId,
+                        'name' => $item['name'],
+                        'amount' => $item['amount'],
+                        'created_at' => now()
+                    ];
+                })->toArray();
+
+                Lists::insert($insertData);
+            });
+
+            return response()->json(['message' => 'リスト保存完了']);
+        } catch (\Exception $e) {
+
+            Log::error($e->getMessage());
             return response()->json(['error' => $e->getMessage()], 500);
         }
     }
