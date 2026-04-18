@@ -539,15 +539,21 @@ class RecipeController extends Controller
 
     public function get_lists(Request $request)
     {
-        $lists = Lists::query()
-            ->select('id', 'name', 'amount')
-            ->where('users_id', $this->userId)
-            ->where('delete_flg', 0)
-            ->get();
+        try {
+            $lists = Lists::query()
+                ->select('id', 'name', 'amount')
+                ->where('users_id', $this->userId)
+                ->where('delete_flg', 0)
+                ->get();
 
-        if ($lists->isEmpty()) $lists = [];
+            if ($lists->isEmpty()) $lists = [];
 
-        return response()->json(['lists' => $lists]);
+            return response()->json(['lists' => $lists]);
+        } catch (\Exception $e) {
+            Log::error($e);
+
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
     }
 
     public function lists_post(Request $request)

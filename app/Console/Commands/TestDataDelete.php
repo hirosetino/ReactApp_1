@@ -6,27 +6,22 @@ use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
-use Carbon\Carbon;
-
 use App\Models\Recipe;
 use App\Models\Ingredient;
 use App\Models\Menu;
 use App\Models\Category;
 use App\Models\Lists;
 
-class PurgeSoftDeletedData extends Command
+class TestDataDelete extends Command
 {
-    protected $signature = 'batch:purge-soft-deleted';
-    protected $description = 'delete_flg=1 かつ 1ヶ月以上前のデータを物理削除';
+    protected $signature = 'batch:test-data-deleted';
+    protected $description = 'users.id=1のデータを物理削除';
 
     public function handle(): int
     {
-        $border = Carbon::today()->subMonth();
-
         DB::beginTransaction();
         try {
-            $recipeIds = Recipe::where('delete_flg', 1)
-                ->whereDate('updated_at', '<=', $border)
+            $recipeIds = Recipe::where('users_id', 1)
                 ->pluck('id');
 
             if ($recipeIds->isNotEmpty()) {
@@ -35,23 +30,21 @@ class PurgeSoftDeletedData extends Command
                 Recipe::whereIn('id', $recipeIds)->delete();
             }
 
-            Category::where('delete_flg', 1)
-                ->where('updated_at', '<=', $border)
+            Category::where('users_id', 1)
                 ->delete();
 
-            Lists::where('delete_flg', 1)
-                ->where('updated_at', '<=', $border)
+            Lists::where('users_id', 1)
                 ->delete();
 
             DB::commit();
 
-            $this->info('Purge completed');
-            Log::info('PurgeSoftDeletedData completed');
+            $this->info('TestDataDelete completed');
+            Log::info('TestDataDelete completed');
 
             return Command::SUCCESS;
         } catch (\Throwable $e) {
             DB::rollBack();
-            Log::error('PurgeSoftDeletedData failed', [
+            Log::error('TestDataDelete failed', [
                 'error' => $e->getMessage(),
             ]);
 

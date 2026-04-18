@@ -8,6 +8,11 @@ use Inertia\Inertia;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\RecipeController;
 
+// routes/web.php
+Route::get('/health', function () {
+    return response()->json(['status' => 'ok']);
+});
+
 Route::get('/', function () {
     if (Auth::check()) {
         return redirect('/calendar');
