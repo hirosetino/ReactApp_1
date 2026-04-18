@@ -14,8 +14,13 @@ class SupabaseKeepAlive extends Command
     public function handle()
     {
         try {
-            Storage::disk('supabase')->files('/');
+            $dummyPath = 'keep-alive/ping.txt';
+
+            Storage::disk('supabase')->put($dummyPath, now()->toDateTimeString());
+            Storage::disk('supabase')->delete($dummyPath);
+
             $this->info('Supabase keep alive success');
+            Log::info('Supabase keep alive success');
         } catch (\Exception $e) {
             Log::error('Supabase keep alive failed: ' . $e->getMessage());
         }
