@@ -49,9 +49,9 @@ export default function Layout({
             <Divider />
             <List>
                 {menuItems.map((item) => (
-                <ListItemButton key={item.label} onClick={() => router.visit(item.route)}>
-                    <ListItemText primary={item.label} />
-                </ListItemButton>
+                    <ListItemButton key={item.label} onClick={() => router.visit(item.route)}>
+                        <ListItemText primary={item.label} />
+                    </ListItemButton>
                 ))}
             </List>
         </div>
@@ -64,78 +64,78 @@ export default function Layout({
             <AppBar
                 position="fixed"
                 sx={{
-                zIndex: (theme) => theme.zIndex.drawer + 1,
-                backgroundColor: "#ffffff",
-                color: "#000000"
+                    zIndex: (theme) => theme.zIndex.drawer + 1,
+                    backgroundColor: "#ffffff",
+                    color: "#000000"
                 }}
             >
                 <Toolbar>
 
-                {!isDesktop && (
-                    <IconButton
-                    color="inherit"
-                    edge="start"
-                    onClick={toggleDrawer}
-                    sx={{ mr: 1 }}
+                    {!isDesktop && (
+                        <IconButton
+                            color="inherit"
+                            edge="start"
+                            onClick={toggleDrawer}
+                            sx={{ mr: 1 }}
+                        >
+                            <MenuIcon />
+                        </IconButton>
+                    )}
+
+                    <Typography
+                        variant="h6"
+                        sx={{
+                            display: 'flex',
+                            flexGrow: 1,
+                            alignItems: 'center',
+                            gap: 1,
+                            fontWeight: 'bold',
+                        }}
                     >
-                    <MenuIcon />
+                        <img
+                            src="/images/logo_circle.webp"
+                            alt=""
+                            style={{ width: 32, height: 32 }}
+                        />
+                        Recipe Manager
+                    </Typography>
+
+                    <IconButton color="inherit" onClick={logout}>
+                        <LogoutIcon />
                     </IconButton>
-                )}
-
-                <Typography
-                    variant="h6"
-                    sx={{
-                        display: 'flex',
-                        flexGrow: 1,
-                        alignItems: 'center',
-                        gap: 1,
-                        fontWeight: 'bold',
-                    }}
-                >
-                    <img
-                        src="/images/logo_circle.png"
-                        alt=""
-                        style={{ width: 32, height: 32 }}
-                    />
-                    cooking pad
-                </Typography>
-
-                <IconButton color="inherit" onClick={logout}>
-                    <LogoutIcon />
-                </IconButton>
                 </Toolbar>
             </AppBar>
 
             {isDesktop && (
                 <Drawer
-                variant="permanent"
-                open
-                sx={{
-                    width: drawerWidth,
-                    flexShrink: 0,
-                    "& .MuiDrawer-paper": {
-                    width: drawerWidth,
-                    boxSizing: "border-box",
-                    },
-                }}
+                    variant="permanent"
+                    open
+                    sx={{
+                        width: drawerWidth,
+                        flexShrink: 0,
+                        "& .MuiDrawer-paper": {
+                            width: drawerWidth,
+                            boxSizing: "border-box",
+                        },
+                    }}
                 >
-                {drawerContent}
+                    {drawerContent}
                 </Drawer>
             )}
 
             {!isDesktop && (
                 <Drawer
-                variant="temporary"
-                open={mobileOpen}
-                onClose={toggleDrawer}
-                ModalProps={{
-                    keepMounted: true,
-                }}
-                sx={{
-                    "& .MuiDrawer-paper": { width: drawerWidth },
-                }}
+                    variant="temporary"
+                    open={mobileOpen}
+                    onClose={toggleDrawer}
+                    ModalProps={{
+                        keepMounted: true,
+                    }}
+                    sx={{
+                        "& .MuiDrawer-paper": { width: drawerWidth },
+                    }}
                 >
-                {drawerContent}
+                    {drawerContent}
                 </Drawer>
             )}
 

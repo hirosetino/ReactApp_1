@@ -30,12 +30,12 @@ export default function Login({ status, canResetPassword }) {
                     {/* Logo */}
                     <Box className="text-center mb-6">
                         <img
-                            src="/images/logo_circle.png"
+                            src="/images/logo_circle.webp"
                             alt="logo"
                             className="w-20 mx-auto mb-3"
                         />
                         <Typography variant="h5" className="font-bold">
-                            cooking pad
+                            Recipe Manager
                         </Typography>
                     </Box>
 

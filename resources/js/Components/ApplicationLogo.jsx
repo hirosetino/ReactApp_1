@@ -3,9 +3,9 @@ export default function ApplicationLogo(props) {
         <div>
             <img
                 {...props}
-                src="/images/logo_circle.png"
+                src="/images/logo_circle.webp"
             />
-            <h1>cooking pad</h1>
+            <h1>Recipe Manager</h1>
         </div>
     );
 }

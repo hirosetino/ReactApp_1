@@ -4,7 +4,7 @@
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
 
-        <title inertia>{{ config('app.name', 'cooking pad') }}</title>
+        <title inertia>{{ config('app.name', 'Recipe Manager') }}</title>
         <link rel="icon" type="image/png" href="/images/logo_icon.png">
         <link rel="apple-touch-icon" href="/images/logo_icon.png">
 
